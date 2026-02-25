@@ -709,7 +709,12 @@ def show_alumni_card(alumni):
     if alumni.get("linkedin"):
         linkedin_html = f'<a href="{alumni["linkedin"]}" target="_blank" style="color:#0077b5;font-size:0.8rem;text-decoration:none;">LinkedIn</a>'
 
-    card_html = f'<div style="background-color:white;padding:1.25rem;border-radius:0.75rem;border:1px solid #e5e7eb;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:#1f2937;">{alumni["name"]}</div><div style="color:#6b7280;font-size:0.875rem;margin-bottom:0.5rem;">Cohort: {alumni.get("cohort") or "N/A"}</div>{role_html}<div style="margin-bottom:0.5rem;">{type_badges_html}{party_html}</div>{office_html}<div style="margin-bottom:0.25rem;">{sector_html}</div>{location_html}{linkedin_html}</div>'
+    # Do not contact indicator
+    do_not_contact_html = ""
+    if not alumni.get("contact", True):
+        do_not_contact_html = '<div style="color:#dc2626;font-size:0.8rem;font-weight:600;margin-bottom:0.5rem;">⚠️ Do not contact</div>'
+
+    card_html = f'<div style="background-color:white;padding:1.25rem;border-radius:0.75rem;border:1px solid #e5e7eb;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:#1f2937;">{alumni["name"]}</div>{do_not_contact_html}<div style="color:#6b7280;font-size:0.875rem;margin-bottom:0.5rem;">Cohort: {alumni.get("cohort") or "N/A"}</div>{role_html}<div style="margin-bottom:0.5rem;">{type_badges_html}{party_html}</div>{office_html}<div style="margin-bottom:0.25rem;">{sector_html}</div>{location_html}{linkedin_html}</div>'
 
     st.markdown(card_html, unsafe_allow_html=True)
 

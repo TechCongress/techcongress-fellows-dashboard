@@ -17,7 +17,7 @@ Google Sheets structure — four tabs in one spreadsheet:
   Alumni        — ID | Name | Email | Phone Number | Cohort | Fellow Type |
                   Party | Office Served | Chamber | Education | Prior Role |
                   Current Role | Current Organization | Sector | Location |
-                  LinkedIn | Last Engaged | Engagement Notes | Notes
+                  Contact? | LinkedIn | Last Engaged | Engagement Notes | Notes
 
 Key differences from Airtable version:
   - Auth: service account JSON in st.secrets["gcp_service_account"]
@@ -419,6 +419,7 @@ def fetch_alumni() -> list[dict]:
             "current_org":      str(row.get("Current Organization", "")),
             "sector":           str(row.get("Sector", "")),
             "location":         str(row.get("Location", "")),
+            "contact":          _to_bool(row.get("Contact?", True)),
             "linkedin":         str(row.get("LinkedIn", "")),
             "last_engaged":     str(row.get("Last Engaged", "")),
             "engagement_notes": str(row.get("Engagement Notes", "")),
@@ -454,6 +455,7 @@ def _alumni_row_values(alumni_id: str, data: dict) -> list:
         data.get("current_org", ""),
         data.get("sector", ""),
         data.get("location", ""),
+        "TRUE" if data.get("contact", True) else "FALSE",
         data.get("linkedin", ""),
         data.get("last_engaged", ""),
         data.get("engagement_notes", ""),
@@ -482,7 +484,7 @@ def update_alumni(record_id: str, alumni_data: dict) -> bool:
     Update an existing alumni row by ID.
 
     Airtable equivalent: PATCH to Alumni table.
-    Here: find the row by ID, overwrite the entire row (19 columns = A:S).
+    Here: find the row by ID, overwrite the entire row (20 columns = A:T).
     """
     try:
         ws = _worksheet(ALUMNI_SHEET)
@@ -490,7 +492,7 @@ def update_alumni(record_id: str, alumni_data: dict) -> bool:
         if not cell:
             st.error(f"Alumni {record_id} not found.")
             return False
-        ws.update(f"A{cell.row}:S{cell.row}", [_alumni_row_values(record_id, alumni_data)], value_input_option="USER_ENTERED")
+        ws.update(f"A{cell.row}:T{cell.row}", [_alumni_row_values(record_id, alumni_data)], value_input_option="USER_ENTERED")
         return True
     except Exception as e:
         st.error(f"Failed to update alumni record: {e}")

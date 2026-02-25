@@ -110,7 +110,7 @@ ID | Fellow ID | Month | Submitted | Date Submitted | Notes
 
 **Alumni:**
 ```
-ID | Name | Email | Phone Number | Cohort | Fellow Type | Party | Office Served | Chamber | Education | Prior Role | Current Role | Current Organization | Sector | Location | LinkedIn | Last Engaged | Engagement Notes | Notes
+ID | Name | Email | Phone Number | Cohort | Fellow Type | Party | Office Served | Chamber | Education | Prior Role | Current Role | Current Organization | Sector | Location | Contact? | LinkedIn | Last Engaged | Engagement Notes | Notes
 ```
 
 ### 2. Create a Google Cloud Service Account
