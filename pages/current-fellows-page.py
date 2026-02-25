@@ -8,6 +8,18 @@ from helpers import (
     calculate_days_since, calculate_days_until, GOOGLE_SHEET_URL
 )
 
+def _cohort_sort_key(cohort_str: str) -> datetime:
+    """Parse a cohort string into a datetime for correct chronological sorting.
+    Handles 'January 2025' (month-year) and '2025' (year-only) formats."""
+    if not cohort_str:
+        return datetime.min
+    for fmt in ("%B %Y", "%b %Y", "%Y"):
+        try:
+            return datetime.strptime(cohort_str.strip(), fmt)
+        except ValueError:
+            continue
+    return datetime.min
+
 # ============ AUTH GUARD ============
 if not st.session_state.get("authenticated"):
     st.warning("Please log in first.")
@@ -556,7 +568,7 @@ def main():
         # Cohort filter
         col1, col2 = st.columns(2)
         with col1:
-            cohorts = sorted(set([f["cohort"] for f in fellows if f["cohort"]]), reverse=True)
+            cohorts = sorted(set([f["cohort"] for f in fellows if f["cohort"]]), key=_cohort_sort_key, reverse=True)
             cohort_options = ["All Cohorts"] + cohorts
             cohort_filter = st.selectbox("Cohort", cohort_options)
         with col2:
@@ -607,9 +619,9 @@ def main():
     elif sort_by == "End Date (latest first)":
         filtered_fellows.sort(key=lambda f: f["end_date"] or "0000-00-00", reverse=True)
     elif sort_by == "Cohort (newest first)":
-        filtered_fellows.sort(key=lambda f: f["cohort"] or "", reverse=True)
+        filtered_fellows.sort(key=lambda f: _cohort_sort_key(f.get("cohort") or ""), reverse=True)
     elif sort_by == "Cohort (oldest first)":
-        filtered_fellows.sort(key=lambda f: f["cohort"] or "")
+        filtered_fellows.sort(key=lambda f: _cohort_sort_key(f.get("cohort") or ""))
 
     # Show count
     st.caption(f"Showing {len(filtered_fellows)} of {total} fellows")

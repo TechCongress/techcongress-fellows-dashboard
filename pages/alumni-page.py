@@ -5,6 +5,18 @@ from helpers import (
     calculate_days_since
 )
 
+def _cohort_sort_key(cohort_str: str) -> datetime:
+    """Parse a cohort string into a datetime for correct chronological sorting.
+    Handles 'January 2025' (month-year) and '2025' (year-only) formats."""
+    if not cohort_str:
+        return datetime.min
+    for fmt in ("%B %Y", "%b %Y", "%Y"):
+        try:
+            return datetime.strptime(cohort_str.strip(), fmt)
+        except ValueError:
+            continue
+    return datetime.min
+
 # ============ AUTH GUARD ============
 if not st.session_state.get("authenticated"):
     st.warning("Please log in first.")
@@ -589,7 +601,7 @@ def main():
         # Cohort filter + Sort
         col1, col2 = st.columns(2)
         with col1:
-            cohorts = sorted(set([a["cohort"] for a in alumni_list if a.get("cohort")]), reverse=True)
+            cohorts = sorted(set([a["cohort"] for a in alumni_list if a.get("cohort")]), key=_cohort_sort_key, reverse=True)
             cohort_options = ["All Cohorts"] + cohorts
             cohort_filter = st.selectbox("Cohort", cohort_options)
         with col2:
@@ -624,9 +636,9 @@ def main():
 
     # Sort
     if sort_by == "Cohort (newest first)":
-        filtered.sort(key=lambda a: a.get("cohort") or "", reverse=True)
+        filtered.sort(key=lambda a: _cohort_sort_key(a.get("cohort") or ""), reverse=True)
     elif sort_by == "Cohort (oldest first)":
-        filtered.sort(key=lambda a: a.get("cohort") or "")
+        filtered.sort(key=lambda a: _cohort_sort_key(a.get("cohort") or ""))
     elif sort_by == "Name (A-Z)":
         filtered.sort(key=lambda a: a["name"].lower())
     elif sort_by == "Name (Z-A)":
