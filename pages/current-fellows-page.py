@@ -547,7 +547,7 @@ def main():
             fellow_type_options = ["All Types", "Senior Congressional Innovation Fellow", "Congressional Innovation Fellow", "AI Security Fellow"]
             fellow_type_filter = st.selectbox("Fellow Type", fellow_type_options)
         with col4:
-            party_options = ["All Parties", "Democrat", "Republican", "Independent"]
+            party_options = ["All Parties", "Democrat", "Republican", "Independent", "Institutional Office"]
             party_filter = st.selectbox("Party", party_options)
         with col5:
             chamber_options = ["All Chambers", "Senate", "House"]
@@ -678,6 +678,8 @@ def show_fellow_card(fellow):
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#3b82f6;color:#ffffff;">D</span>'
         elif fellow["party"] == "Independent":
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#8b5cf6;color:#ffffff;">I</span>'
+        elif fellow["party"] == "Institutional Office":
+            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#64748b;color:#ffffff;">Institutional</span>'
     elif is_aisf:
         party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#94a3b8;color:#ffffff;">Executive Branch</span>'
 
@@ -766,6 +768,8 @@ def show_fellow_modal(fellow):
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#3b82f6;color:#ffffff;">D</span>'
         elif fellow["party"] == "Independent":
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#8b5cf6;color:#ffffff;">I</span>'
+        elif fellow["party"] == "Institutional Office":
+            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#64748b;color:#ffffff;">Institutional</span>'
     elif is_aisf:
         party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#94a3b8;color:#ffffff;">Executive Branch</span>'
 
@@ -1015,8 +1019,8 @@ def show_fellow_form():
             )
             party = st.selectbox(
                 "Party",
-                ["", "Democrat", "Republican", "Independent"],
-                index=["", "Democrat", "Republican", "Independent"].index(fellow.get("party", "")) if fellow.get("party", "") in ["", "Democrat", "Republican", "Independent"] else 0
+                ["", "Democrat", "Republican", "Independent", "Institutional Office"],
+                index=["", "Democrat", "Republican", "Independent", "Institutional Office"].index(fellow.get("party", "")) if fellow.get("party", "") in ["", "Democrat", "Republican", "Independent", "Institutional Office"] else 0
             )
             chamber = st.selectbox(
                 "Chamber",

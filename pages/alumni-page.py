@@ -580,7 +580,7 @@ def main():
             sector_options = ["All Sectors", "Government", "Nonprofit", "Academia", "Private", "Policy/Think Tank"]
             sector_filter = st.selectbox("Sector", sector_options)
         with col4:
-            party_options = ["All Parties", "Democrat", "Republican", "Independent"]
+            party_options = ["All Parties", "Democrat", "Republican", "Independent", "Institutional Office"]
             party_filter = st.selectbox("Party", party_options)
         with col5:
             chamber_options = ["All Chambers", "Senate", "House", "Executive Branch"]
@@ -674,6 +674,8 @@ def show_alumni_card(alumni):
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#3b82f6;color:#ffffff;">D</span>'
         elif alumni["party"] == "Independent":
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#8b5cf6;color:#ffffff;">I</span>'
+        elif alumni["party"] == "Institutional Office":
+            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#64748b;color:#ffffff;">Institutional</span>'
     elif aisf:
         party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#94a3b8;color:#ffffff;">Executive Branch</span>'
 
@@ -753,6 +755,8 @@ def show_alumni_modal(alumni):
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#3b82f6;color:#ffffff;">D</span>'
         elif alumni["party"] == "Independent":
             party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#8b5cf6;color:#ffffff;">I</span>'
+        elif alumni["party"] == "Institutional Office":
+            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#64748b;color:#ffffff;">Institutional</span>'
     elif aisf:
         party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#94a3b8;color:#ffffff;">Executive Branch</span>'
 
@@ -880,7 +884,7 @@ def show_alumni_form():
                 fellow_type_all,
                 default=alumni.get("fellow_types", [])
             )
-            party_options = ["", "Democrat", "Republican", "Independent"]
+            party_options = ["", "Democrat", "Republican", "Independent", "Institutional Office"]
             party = st.selectbox(
                 "Party",
                 party_options,
