@@ -20,6 +20,19 @@ def _cohort_sort_key(cohort_str: str) -> datetime:
             continue
     return datetime.min
 
+
+def _parse_date_value(date_str):
+    """Parse a date string from Google Sheets into a Python date object.
+    Returns None if the string is empty or unparseable."""
+    if not date_str:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%-m/%-d/%Y", "%m/%d/%y", "%-m/%-d/%y"):
+        try:
+            return datetime.strptime(str(date_str).strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
 # ============ AUTH GUARD ============
 if not st.session_state.get("authenticated"):
     st.warning("Please log in first.")
@@ -1060,19 +1073,19 @@ def show_fellow_form():
         with col1:
             start_date = st.date_input(
                 "Start Date",
-                value=datetime.strptime(fellow["start_date"], "%Y-%m-%d") if fellow.get("start_date") else None,
+                value=_parse_date_value(fellow.get("start_date")),
                 format="YYYY-MM-DD"
             )
         with col2:
             end_date = st.date_input(
                 "End Date",
-                value=datetime.strptime(fellow["end_date"], "%Y-%m-%d") if fellow.get("end_date") else None,
+                value=_parse_date_value(fellow.get("end_date")),
                 format="YYYY-MM-DD"
             )
         with col3:
             last_check_in = st.date_input(
                 "Last Check-in",
-                value=datetime.strptime(fellow["last_check_in"], "%Y-%m-%d") if fellow.get("last_check_in") else None,
+                value=_parse_date_value(fellow.get("last_check_in")),
                 format="YYYY-MM-DD"
             )
 
