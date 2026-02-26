@@ -55,7 +55,7 @@ A Streamlit-based dashboard for managing and monitoring TechCongress fellow plac
 - **Login Page** — Password-protected login with centered TechCongress logo and forced light mode
 - **Current Fellows Dashboard** — Card-based grid showing all fellows with status badges, check-in tracking, and monthly report management
 - **Alumni Dashboard** — Card-based grid showing alumni with sector tags, current role/organization, engagement tracking, and multi-select fellow type badges
-- **Modal Popups** — Click "View" on any card to open detailed information with contact info, history, and notes
+- **Modal Popups** — Click "View" on any card to open a tabbed detail view (Contact, Placement, Background, Status Reports, Check-ins for fellows; Contact, Fellowship History, Background, Current Info, Engagement, Accomplishments for alumni)
 - **Sidebar Navigation** — Toggle between Current Fellows and Alumni pages
 
 ---

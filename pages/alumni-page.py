@@ -788,11 +788,14 @@ def show_alumni_modal(alumni):
 
     st.markdown("---")
 
-    # Two-column layout
-    col1, col2 = st.columns(2)
+    # ── Tabbed layout ──────────────────────────────────────────────────────────
+    (tab_contact, tab_fellowship, tab_background,
+     tab_current, tab_engagement, tab_accomplishments) = st.tabs([
+        "Contact", "Fellowship History", "Background",
+        "Current Info", "Engagement", "Accomplishments"
+    ])
 
-    with col1:
-        st.markdown("### Contact")
+    with tab_contact:
         if alumni.get("email"):
             st.markdown(f"📧 [{alumni['email']}](mailto:{alumni['email']})")
         if alumni.get("phone"):
@@ -800,57 +803,71 @@ def show_alumni_modal(alumni):
         if alumni.get("linkedin"):
             st.markdown(f"🔗 [LinkedIn]({alumni['linkedin']})")
         if not alumni.get("email") and not alumni.get("phone") and not alumni.get("linkedin"):
-            st.caption("No contact info")
+            st.caption("No contact info on record.")
+        st.markdown("")
+        if not alumni.get("contact", True):
+            st.markdown('<p style="color:#dc2626;font-weight:600;margin:0;">⚠️ Do not contact</p>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="color:#166534;margin:0;">✓ OK to contact</p>', unsafe_allow_html=True)
 
-        st.markdown("### Fellowship History")
-        if fellow_types:
-            st.markdown(f"**Fellow Type(s):** {', '.join(fellow_types)}")
-        if alumni.get("office_served"):
-            st.markdown(f"**Office Served:** {alumni['office_served']}")
-        if alumni.get("chamber"):
-            st.markdown(f"**Chamber:** {alumni['chamber']}")
-        if alumni.get("party"):
-            st.markdown(f"**Party:** {alumni['party']}")
-        elif aisf:
-            st.markdown("**Branch:** Executive Branch")
+    with tab_fellowship:
+        col1, col2 = st.columns(2)
+        with col1:
+            if fellow_types:
+                st.markdown(f"**Fellow Type(s):** {', '.join(fellow_types)}")
+            if alumni.get("cohort"):
+                st.markdown(f"**Cohort:** {alumni['cohort']}")
+            if alumni.get("chamber"):
+                st.markdown(f"**Chamber:** {alumni['chamber']}")
+            if alumni.get("party"):
+                st.markdown(f"**Party:** {alumni['party']}")
+            elif aisf:
+                st.markdown("**Branch:** Executive Branch")
+        with col2:
+            if alumni.get("office_served"):
+                st.markdown(f"**Office Served:** {alumni['office_served']}")
 
-        st.markdown("### Background")
-        if alumni.get("prior_role"):
-            st.markdown(f"**Prior Role:** {alumni['prior_role']}")
-        if alumni.get("education"):
-            st.markdown(f"**Education:** {alumni['education']}")
-        if not alumni.get("prior_role") and not alumni.get("education"):
-            st.caption("No background info")
+    with tab_background:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Prior Role**")
+            st.markdown(alumni["prior_role"] if alumni.get("prior_role") else "_No prior role on record._")
+        with col2:
+            st.markdown("**Education**")
+            st.markdown(alumni["education"] if alumni.get("education") else "_No education info on record._")
 
-    with col2:
-        st.markdown("### Current Info")
-        if alumni.get("current_role"):
-            st.markdown(f"**Role:** {alumni['current_role']}")
-        if alumni.get("current_org"):
-            st.markdown(f"**Organization:** {alumni['current_org']}")
-        if alumni.get("sector"):
-            st.markdown(f"**Sector:** {alumni['sector']}")
-        if alumni.get("location"):
-            st.markdown(f"**Location:** {alumni['location']}")
-        if not alumni.get("current_role") and not alumni.get("current_org"):
-            st.caption("No current info")
+    with tab_current:
+        col1, col2 = st.columns(2)
+        with col1:
+            if alumni.get("current_role"):
+                st.markdown(f"**Role:** {alumni['current_role']}")
+            if alumni.get("current_org"):
+                st.markdown(f"**Organization:** {alumni['current_org']}")
+            if alumni.get("location"):
+                st.markdown(f"**Location:** {alumni['location']}")
+            if not alumni.get("current_role") and not alumni.get("current_org"):
+                st.caption("No current info on record.")
+        with col2:
+            if alumni.get("sector"):
+                s_bg, s_text = get_sector_badge(alumni["sector"])
+                st.markdown("**Sector**")
+                st.markdown(f'<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{s_bg};color:{s_text};">{alumni["sector"]}</span>', unsafe_allow_html=True)
 
-        st.markdown("### Engagement")
+    with tab_engagement:
         if alumni.get("last_engaged"):
             days_ago = calculate_days_since(alumni["last_engaged"])
-            st.markdown(f"**Last Engaged:** {alumni['last_engaged']} ({days_ago} days ago)")
+            st.markdown(f"**Last Engaged:** {alumni['last_engaged']} _{days_ago} days ago_")
         else:
-            st.caption("No engagement date recorded")
+            st.caption("No engagement date recorded.")
+        if alumni.get("engagement_notes"):
+            st.markdown("**Engagement Notes**")
+            st.markdown(alumni["engagement_notes"])
+        if alumni.get("notes"):
+            st.markdown("**Notes**")
+            st.markdown(alumni["notes"])
 
-    # Engagement Notes
-    if alumni.get("engagement_notes"):
-        st.markdown("#### Engagement Notes")
-        st.markdown(alumni["engagement_notes"])
-
-    # Notes
-    if alumni.get("notes"):
-        st.markdown("#### Notes")
-        st.markdown(alumni["notes"])
+    with tab_accomplishments:
+        st.caption("Accomplishments tracking coming soon.")
 
     st.markdown("---")
 
