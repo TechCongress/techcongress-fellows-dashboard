@@ -1,4 +1,5 @@
 import streamlit as st
+import plotly.graph_objects as go
 from datetime import datetime
 from helpers import (
     fetch_alumni, create_alumni, update_alumni,
@@ -101,6 +102,20 @@ st.markdown("""
         padding: 1rem;
         border-radius: 0.75rem;
         border: 1px solid #e5e7eb;
+    }
+
+    /* Chart cards — match alumni card styling */
+    [data-testid="stPlotlyChart"] {
+        background-color: white;
+        border-radius: 0.75rem !important;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+
+    [data-testid="stPlotlyChart"] > div {
+        border-radius: 0.75rem !important;
     }
 
     div[data-testid="stMetric"] label {
@@ -576,6 +591,112 @@ def main():
         st.metric("Nonprofit / Academia", nonprofit_academia)
     with col5:
         st.metric("Policy / Think Tank", policy)
+
+    # ── Alumni Breakdown Charts ──────────────────────────────────────────────
+    def make_pie(title, labels, values, colors, note=None):
+        display_title = f"{title} ⓘ" if note else title
+        fig = go.Figure(go.Pie(
+            labels=labels,
+            values=values,
+            marker=dict(colors=colors, line=dict(color="#ffffff", width=2)),
+            textinfo="percent",
+            textfont=dict(size=12, color="#ffffff"),
+            hovertemplate="%{label}: %{value} alumni<extra></extra>",
+            hole=0,
+            domain=dict(x=[0, 0.55]),
+        ))
+        fig.update_layout(
+            title=dict(
+                text=display_title,
+                font=dict(size=13, color="#1f2937", family="system-ui, -apple-system, sans-serif"),
+                x=0, xanchor="left", pad=dict(l=14, t=6),
+            ),
+            margin=dict(t=40, b=20, l=16, r=16),
+            height=260,
+            showlegend=True,
+            legend=dict(
+                orientation="v",
+                font=dict(size=12, color="#374151"),
+                x=0.58, y=0.5, xanchor="left",
+            ),
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+        )
+        if note:
+            fig.add_annotation(
+                text=note,
+                xref="paper", yref="paper",
+                x=0, y=-0.02,
+                showarrow=False,
+                font=dict(size=10, color="#9ca3af"),
+                xanchor="left",
+            )
+        return fig
+
+    # Build data from live alumni list
+    party_counts = {}
+    type_counts = {}
+    sector_counts = {}
+
+    for a in alumni_list:
+        raw_party = a.get("party") or ""
+        for p in [x.strip() for x in raw_party.split(",") if x.strip()]:
+            party_counts[p] = party_counts.get(p, 0) + 1
+
+        for ft in (a.get("fellow_types") or []):
+            ft = ft.strip()
+            if "Senior" in ft:
+                label = "Senior CIF"
+            elif "AI Security" in ft:
+                label = "AISF"
+            elif "Scholar" in ft:
+                label = "CIS"
+            elif "Digital Service" in ft:
+                label = "CDSF"
+            else:
+                label = "CIF"
+            type_counts[label] = type_counts.get(label, 0) + 1
+
+        s = a.get("sector") or "Unknown"
+        sector_counts[s] = sector_counts.get(s, 0) + 1
+
+    PARTY_COLORS = {
+        "Democrat": "#3b82f6", "Republican": "#ef4444",
+        "Independent": "#8b5cf6", "Institutional Office": "#64748b",
+    }
+    TYPE_COLORS = {
+        "CIF": "#93c5fd", "Senior CIF": "#6366f1",
+        "AISF": "#0891b2", "CIS": "#f59e0b", "CDSF": "#10b981",
+    }
+    SECTOR_COLORS = {
+        "Government": "#3b82f6", "Private": "#8b5cf6",
+        "Nonprofit": "#22c55e", "Academia": "#f59e0b",
+        "Policy/Think Tank": "#0891b2", "Unknown": "#d1d5db",
+    }
+
+    chart_col1, chart_col2, chart_col3 = st.columns(3)
+
+    with chart_col1:
+        st.plotly_chart(
+            make_pie("By Party", list(party_counts.keys()), list(party_counts.values()),
+                     [PARTY_COLORS.get(k, "#d1d5db") for k in party_counts],
+                     note="Alumni with multiple affiliations are counted in each category"),
+            use_container_width=True, config={"displayModeBar": False},
+        )
+
+    with chart_col2:
+        st.plotly_chart(
+            make_pie("By Fellow Type", list(type_counts.keys()), list(type_counts.values()),
+                     [TYPE_COLORS.get(k, "#d1d5db") for k in type_counts]),
+            use_container_width=True, config={"displayModeBar": False},
+        )
+
+    with chart_col3:
+        st.plotly_chart(
+            make_pie("By Sector", list(sector_counts.keys()), list(sector_counts.values()),
+                     [SECTOR_COLORS.get(k, "#d1d5db") for k in sector_counts]),
+            use_container_width=True, config={"displayModeBar": False},
+        )
 
     st.markdown("---")
 
