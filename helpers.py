@@ -140,6 +140,7 @@ def fetch_fellows() -> list[dict]:
             "requires_monthly_reports": _to_bool(row.get("Requires Monthly Reports", False)),
             "report_start_date":       str(row.get("Report Start Date", "")),
             "report_end_month":        str(row.get("Report End Month", "")),
+            "supervisor_email":        str(row.get("Supervisor's Email", "")),
         })
     return fellows
 
@@ -157,19 +158,20 @@ def _fellow_row_values(fellow_id: str, data: dict) -> list:
         data.get("cohort", ""),
         data.get("fellow_type", ""),
         data.get("party", ""),
-        data.get("office", ""),
-        data.get("chamber", ""),
-        data.get("linkedin", ""),
-        data.get("start_date", ""),
-        data.get("end_date", ""),
-        data.get("status", "Active"),
-        data.get("last_check_in", ""),
-        data.get("prior_role", ""),
-        data.get("education", ""),
-        data.get("notes", ""),
-        "TRUE" if data.get("requires_monthly_reports") else "FALSE",
-        data.get("report_start_date", ""),
-        data.get("report_end_month", ""),
+        data.get("office", ""),           # H
+        data.get("chamber", ""),           # I
+        data.get("supervisor_email", ""),  # J
+        data.get("linkedin", ""),          # K
+        data.get("start_date", ""),        # L
+        data.get("end_date", ""),          # M
+        data.get("status", "Active"),      # N
+        data.get("last_check_in", ""),     # O
+        data.get("prior_role", ""),        # P
+        data.get("education", ""),         # Q
+        data.get("notes", ""),             # R
+        "TRUE" if data.get("requires_monthly_reports") else "FALSE",  # S
+        data.get("report_start_date", ""),  # T
+        data.get("report_end_month", ""),   # U
     ]
 
 
@@ -208,7 +210,7 @@ def update_fellow(record_id: str, fellow_data: dict) -> bool:
             return False
         row_num = cell.row
         # Build the range string, e.g. "A5:T5" for 20 columns
-        ws.update(f"A{row_num}:T{row_num}", [_fellow_row_values(record_id, fellow_data)], value_input_option="USER_ENTERED")
+        ws.update(f"A{row_num}:U{row_num}", [_fellow_row_values(record_id, fellow_data)], value_input_option="USER_ENTERED")
         return True
     except Exception as e:
         st.error(f"Failed to update fellow: {e}")
@@ -220,15 +222,15 @@ def update_fellow_checkin(record_id: str, checkin_date: str) -> bool:
     Update only the 'Last Check-in' field for a fellow.
 
     Airtable equivalent: PATCH with just {"Last Check-in": date}
-    Here: find the row, then update just column N (index 14, 1-based = column N).
+    Here: find the row, then update just column O (index 15, 1-based = column O).
     """
     try:
         ws = _worksheet(FELLOWS_SHEET)
         cell = ws.find(record_id, in_column=1)
         if not cell:
             return False
-        # "Last Check-in" is the 14th column (N)
-        ws.update_cell(cell.row, 14, checkin_date)
+        # "Last Check-in" is the 15th column (O) after Supervisor's Email was added at J
+        ws.update_cell(cell.row, 15, checkin_date)
         return True
     except Exception as e:
         st.error(f"Failed to update Last Check-in: {e}")

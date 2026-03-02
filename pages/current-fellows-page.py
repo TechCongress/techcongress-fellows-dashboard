@@ -944,6 +944,8 @@ def show_fellow_modal(fellow):
                 st.markdown(f"**Chamber:** {fellow['chamber']}")
             if fellow["party"]:
                 st.markdown(f"**Party:** {fellow['party']}")
+            if fellow.get("supervisor_email"):
+                st.markdown(f"**Supervisor's Email:** [{fellow['supervisor_email']}](mailto:{fellow['supervisor_email']})")
             if not fellow["office"] and not fellow["chamber"]:
                 st.caption("No placement info on record.")
         with col2:
@@ -1171,6 +1173,7 @@ def show_fellow_form():
             )
 
         office = st.text_input("Office", value=fellow.get("office", ""), placeholder="e.g., Sen. Maria Cantwell (D-WA)")
+        supervisor_email = st.text_input("Supervisor's Email", value=fellow.get("supervisor_email", ""), placeholder="e.g., supervisor@mail.house.gov")
         cohort = st.text_input("Cohort", value=fellow.get("cohort", ""), placeholder="e.g., 2025")
 
         col1, col2, col3 = st.columns(3)
@@ -1223,6 +1226,7 @@ def show_fellow_form():
                     "fellow_type": fellow_type,
                     "party": party,
                     "office": office,
+                    "supervisor_email": supervisor_email,
                     "chamber": chamber,
                     "linkedin": linkedin,
                     "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
