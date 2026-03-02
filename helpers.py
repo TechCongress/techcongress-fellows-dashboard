@@ -45,7 +45,10 @@ from datetime import datetime, timedelta
 
 SPREADSHEET_ID = st.secrets["gsheets"]["spreadsheet_id"]
 GOOGLE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit"
-FORM_RESPONSES_URL = st.secrets["gsheets"].get("form_responses_url", GOOGLE_SHEET_URL)
+try:
+    FORM_RESPONSES_URL = st.secrets["gsheets"]["form_responses_url"]
+except KeyError:
+    FORM_RESPONSES_URL = GOOGLE_SHEET_URL
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
