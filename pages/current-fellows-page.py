@@ -1,4 +1,5 @@
 import streamlit as st
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from helpers import (
     fetch_fellows, create_fellow, update_fellow, update_fellow_checkin,
@@ -120,6 +121,21 @@ st.markdown("""
         padding: 1rem;
         border-radius: 0.75rem;
         border: 1px solid #e5e7eb;
+    }
+
+    /* Chart cards — match fellow card styling */
+    [data-testid="stPlotlyChart"] {
+        background-color: white;
+        border-radius: 0.75rem !important;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+
+    /* Tighten gap between stats and charts */
+    [data-testid="stPlotlyChart"] > div {
+        border-radius: 0.75rem !important;
     }
 
     div[data-testid="stMetric"] label {
@@ -557,6 +573,93 @@ def main():
         st.metric("Flagged", flagged, help="Needs attention")
     with col5:
         st.metric("Ending Soon", ending_soon, help="Within 90 days")
+
+    # ── Fellow Breakdown Charts ──────────────────────────────────────────────
+    def make_pie(title, labels, values, colors):
+        fig = go.Figure(go.Pie(
+            labels=labels,
+            values=values,
+            marker=dict(colors=colors, line=dict(color="#ffffff", width=2)),
+            textinfo="percent",
+            textfont=dict(size=12, color="#ffffff"),
+            hovertemplate="%{label}: %{value} fellow(s)<extra></extra>",
+            hole=0,
+            domain=dict(x=[0, 0.55]),
+        ))
+        fig.update_layout(
+            title=dict(
+                text=title,
+                font=dict(size=13, color="#1f2937", family="system-ui, -apple-system, sans-serif"),
+                x=0, xanchor="left", pad=dict(l=14, t=6),
+            ),
+            margin=dict(t=40, b=20, l=16, r=16),
+            height=260,
+            showlegend=True,
+            legend=dict(
+                orientation="v",
+                font=dict(size=12, color="#374151"),
+                x=0.58, y=0.5, xanchor="left",
+            ),
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+        )
+        return fig
+
+    # Build data from live fellows list
+    party_counts = {}
+    chamber_counts = {}
+    type_counts = {}
+
+    for f in fellows:
+        p = f.get("party")
+        if p:  # skip fellows with no party (e.g. AISF)
+            party_counts[p] = party_counts.get(p, 0) + 1
+
+        is_aisf_fellow = "AI Security" in (f.get("fellow_type") or "")
+        c = "Executive Branch" if is_aisf_fellow else (f.get("chamber") or "Unknown")
+        chamber_counts[c] = chamber_counts.get(c, 0) + 1
+
+        ft = f.get("fellow_type") or "Unknown"
+        if "Senior" in ft:
+            ft = "Senior CIF"
+        elif "AI Security" in ft:
+            ft = "AISF"
+        elif ft != "Unknown":
+            ft = "CIF"
+        type_counts[ft] = type_counts.get(ft, 0) + 1
+
+    PARTY_COLORS = {
+        "Democrat": "#3b82f6",
+        "Republican": "#ef4444",
+        "Independent": "#8b5cf6",
+        "Institutional Office": "#64748b",
+        "Unknown": "#d1d5db",
+    }
+    CHAMBER_COLORS = {"Senate": "#0891b2", "House": "#0d9488", "Executive Branch": "#94a3b8", "Unknown": "#d1d5db"}
+    TYPE_COLORS = {"Senior CIF": "#6366f1", "CIF": "#93c5fd", "AISF": "#0891b2", "Unknown": "#d1d5db"}
+
+    chart_col1, chart_col2, chart_col3 = st.columns(3)
+
+    with chart_col1:
+        st.plotly_chart(
+            make_pie("By Party", list(party_counts.keys()), list(party_counts.values()),
+                     [PARTY_COLORS.get(k, "#d1d5db") for k in party_counts]),
+            use_container_width=True, config={"displayModeBar": False},
+        )
+
+    with chart_col2:
+        st.plotly_chart(
+            make_pie("By Chamber", list(chamber_counts.keys()), list(chamber_counts.values()),
+                     [CHAMBER_COLORS.get(k, "#d1d5db") for k in chamber_counts]),
+            use_container_width=True, config={"displayModeBar": False},
+        )
+
+    with chart_col3:
+        st.plotly_chart(
+            make_pie("By Fellow Type", list(type_counts.keys()), list(type_counts.values()),
+                     [TYPE_COLORS.get(k, "#d1d5db") for k in type_counts]),
+            use_container_width=True, config={"displayModeBar": False},
+        )
 
     st.markdown("---")
 
