@@ -1052,6 +1052,7 @@ def show_fellow_modal(fellow):
                     else:
                         report_data = {
                             "fellow_id": fellow["id"],
+                            "fellow_name": fellow["name"],
                             "month": month_to_mark,
                             "submitted": True,
                             "date_submitted": date_submitted.strftime("%Y-%m-%d")

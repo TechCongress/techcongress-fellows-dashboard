@@ -356,12 +356,13 @@ def add_status_report(report_data: dict) -> bool:
         ws = _worksheet(REPORTS_SHEET)
         report_id = _new_id()
         ws.append_row([
-            report_id,
-            report_data.get("fellow_id", ""),
-            report_data.get("month", ""),
-            "TRUE" if report_data.get("submitted", False) else "FALSE",
-            report_data.get("date_submitted", ""),
-            report_data.get("notes", ""),
+            report_id,                                                    # A
+            report_data.get("fellow_id", ""),                             # B
+            report_data.get("fellow_name", ""),                           # C
+            report_data.get("month", ""),                                 # D
+            "TRUE" if report_data.get("submitted", False) else "FALSE",   # E
+            report_data.get("date_submitted", ""),                        # F
+            report_data.get("notes", ""),                                 # G
         ], value_input_option="USER_ENTERED")
         return True
     except Exception as e:
