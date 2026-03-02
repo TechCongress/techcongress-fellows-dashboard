@@ -5,7 +5,8 @@ from helpers import (
     fetch_checkins, add_checkin, delete_checkin,
     fetch_status_reports, add_status_report, update_status_report,
     get_required_report_months, calculate_report_streak,
-    calculate_days_since, calculate_days_until, GOOGLE_SHEET_URL
+    calculate_days_since, calculate_days_until, GOOGLE_SHEET_URL,
+    FORM_RESPONSES_URL
 )
 
 def _cohort_sort_key(cohort_str: str) -> datetime:
@@ -880,8 +881,8 @@ def show_fellow_modal(fellow):
         if not fellow.get("requires_monthly_reports"):
             st.caption("This fellow does not require monthly status reports.")
         else:
-            # Link to Google Sheet
-            st.markdown(f"[📊 View All Responses in Google Sheet]({GOOGLE_SHEET_URL})")
+            # Link to the form responses sheet
+            st.markdown(f"[📊 View All Responses in Google Sheet]({FORM_RESPONSES_URL})")
 
             required_months = get_required_report_months(fellow)
             status_reports = fetch_status_reports(fellow["id"])
