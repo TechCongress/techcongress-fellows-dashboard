@@ -513,7 +513,7 @@ def get_sector_badge(sector):
     """Return (bg_color, text_color) for a sector."""
     sector_colors = {
         "Government": ("#dbeafe", "#1d4ed8"),
-        "Nonprofit": ("#dcfce7", "#166534"),
+        "Nonprofit/Think Tank": ("#dcfce7", "#166534"),
         "Academia": ("#f3e8ff", "#7c3aed"),
         "Private": ("#ffedd5", "#9a3412"),
         "Policy/Think Tank": ("#fce7f3", "#9d174d"),
@@ -574,7 +574,7 @@ def main():
     total = len(alumni_list)
     govt = len([a for a in alumni_list if a.get("sector") == "Government"])
     private = len([a for a in alumni_list if a.get("sector") == "Private"])
-    nonprofit_academia = len([a for a in alumni_list if a.get("sector") in ["Nonprofit", "Academia"]])
+    nonprofit_academia = len([a for a in alumni_list if a.get("sector") in ["Nonprofit/Think Tank", "Academia"]])
     policy = len([a for a in alumni_list if a.get("sector") == "Policy/Think Tank"])
 
     # Stats row
@@ -588,7 +588,7 @@ def main():
     with col3:
         st.metric("Private Sector", private)
     with col4:
-        st.metric("Nonprofit / Academia", nonprofit_academia)
+        st.metric("Nonprofit & Academia", nonprofit_academia)
     with col5:
         st.metric("Policy / Think Tank", policy)
 
@@ -670,7 +670,7 @@ def main():
     }
     SECTOR_COLORS = {
         "Government": "#3b82f6", "Private": "#8b5cf6",
-        "Nonprofit": "#22c55e", "Academia": "#f59e0b",
+        "Nonprofit/Think Tank": "#22c55e", "Academia": "#f59e0b",
         "Policy/Think Tank": "#0891b2", "Unknown": "#d1d5db",
     }
 
@@ -710,7 +710,7 @@ def main():
             fellow_type_options = ["All Types", "Congressional Innovation Fellow", "Senior Congressional Innovation Fellow", "Congressional Innovation Scholar", "Congressional Digital Service Fellow", "AI Security Fellow"]
             fellow_type_filter = st.selectbox("Fellow Type", fellow_type_options)
         with col3:
-            sector_options = ["All Sectors", "Government", "Nonprofit", "Academia", "Private", "Policy/Think Tank"]
+            sector_options = ["All Sectors", "Government", "Nonprofit/Think Tank", "Academia", "Private", "Policy/Think Tank"]
             sector_filter = st.selectbox("Sector", sector_options)
         with col4:
             party_options = ["All Parties", "Democrat", "Republican", "Independent", "Institutional Office"]
@@ -1050,7 +1050,7 @@ def show_alumni_form():
 
         col1, col2 = st.columns(2)
         with col1:
-            sector_options = ["", "Government", "Nonprofit", "Academia", "Private", "Policy/Think Tank"]
+            sector_options = ["", "Government", "Nonprofit/Think Tank", "Academia", "Private", "Policy/Think Tank"]
             sector = st.selectbox(
                 "Sector",
                 sector_options,
