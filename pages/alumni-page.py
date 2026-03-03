@@ -726,7 +726,7 @@ def main():
             cohort_options = ["All Cohorts"] + cohorts
             cohort_filter = st.selectbox("Cohort", cohort_options)
         with col2:
-            sort_options = ["Cohort (newest first)", "Cohort (oldest first)", "Name (A-Z)", "Name (Z-A)", "Last Engaged (oldest first)", "Last Engaged (newest first)", "Organization (A-Z)", "Sector"]
+            sort_options = ["Cohort (newest first)", "Cohort (oldest first)", "Name (A-Z)", "Name (Z-A)", "Last Engaged (oldest first)", "Last Engaged (newest first)", "Current Role (A-Z)", "Sector"]
             sort_by = st.selectbox("Sort by", sort_options, index=0)
 
     # Apply filters
@@ -736,7 +736,6 @@ def main():
         search_lower = search.lower()
         filtered = [a for a in filtered if
             search_lower in a["name"].lower() or
-            search_lower in (a.get("current_org") or "").lower() or
             search_lower in (a.get("office_served") or "").lower() or
             search_lower in (a.get("current_role") or "").lower()]
 
@@ -768,8 +767,8 @@ def main():
         filtered.sort(key=lambda a: a.get("last_engaged") or "0000-00-00")
     elif sort_by == "Last Engaged (newest first)":
         filtered.sort(key=lambda a: a.get("last_engaged") or "0000-00-00", reverse=True)
-    elif sort_by == "Organization (A-Z)":
-        filtered.sort(key=lambda a: (a.get("current_org") or "").lower())
+    elif sort_by == "Current Role (A-Z)":
+        filtered.sort(key=lambda a: (a.get("current_role") or "").lower())
     elif sort_by == "Sector":
         filtered.sort(key=lambda a: a.get("sector") or "")
 
@@ -820,14 +819,8 @@ def show_alumni_card(alumni):
 
     # Current role line
     role_html = ""
-    if alumni.get("current_role") or alumni.get("current_org"):
-        role_parts = []
-        if alumni.get("current_role"):
-            role_parts.append(alumni["current_role"])
-        if alumni.get("current_org"):
-            role_parts.append(alumni["current_org"])
-        role_text = " @ ".join(role_parts) if len(role_parts) == 2 else role_parts[0]
-        role_html = f'<div style="color:#374151;font-size:0.875rem;margin-bottom:0.25rem;font-weight:500;">{role_text}</div>'
+    if alumni.get("current_role"):
+        role_html = f'<div style="color:#374151;font-size:0.875rem;margin-bottom:0.25rem;font-weight:500;">{alumni["current_role"]}</div>'
 
     # Office served
     office_html = ""
@@ -961,12 +954,10 @@ def show_alumni_modal(alumni):
         col1, col2 = st.columns(2)
         with col1:
             if alumni.get("current_role"):
-                st.markdown(f"**Role:** {alumni['current_role']}")
-            if alumni.get("current_org"):
-                st.markdown(f"**Organization:** {alumni['current_org']}")
+                st.markdown(f"**Current Role:** {alumni['current_role']}")
             if alumni.get("location"):
                 st.markdown(f"**Location:** {alumni['location']}")
-            if not alumni.get("current_role") and not alumni.get("current_org"):
+            if not alumni.get("current_role"):
                 st.caption("No current info on record.")
         with col2:
             if alumni.get("sector"):
@@ -1052,8 +1043,7 @@ def show_alumni_form():
             cohort = st.text_input("Cohort", value=alumni.get("cohort", ""), placeholder="e.g., 2020")
             office_served = st.text_input("Office Served", value=alumni.get("office_served", ""), placeholder="e.g., Sen. Maria Cantwell (D-WA)")
         with col2:
-            current_role = st.text_input("Current Role", value=alumni.get("current_role", ""))
-            current_org = st.text_input("Current Organization", value=alumni.get("current_org", ""))
+            current_role = st.text_input("Current Role", value=alumni.get("current_role", ""), placeholder="e.g., Policy Analyst @ OSTP")
 
         prior_role = st.text_input("Prior Role", value=alumni.get("prior_role", ""), placeholder="Role before becoming a fellow")
         education = st.text_input("Education", value=alumni.get("education", ""), placeholder="e.g., PhD Computer Science, Stanford")
@@ -1107,7 +1097,6 @@ def show_alumni_form():
                     "chamber": chamber,
                     "party": party,
                     "current_role": current_role,
-                    "current_org": current_org,
                     "sector": sector,
                     "location": location,
                     "linkedin": linkedin,
