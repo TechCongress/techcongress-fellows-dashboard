@@ -3,7 +3,7 @@ from datetime import datetime, date
 from styles import get_css
 from helpers import (
     fetch_fellows, fetch_events, add_event, update_event,
-    fetch_all_event_attendance, save_event_attendance,
+    fetch_all_event_attendance, save_event_attendance_batch,
     get_quarter_compliance, _date_to_quarter, _is_tracked_cohort,
     EVENT_TYPES, calculate_days_since,
 )
@@ -254,19 +254,15 @@ def show_attendance_form(event: dict, fellows: list, attendance: list):
         st.rerun()
 
     if submit:
-        errors = []
-        for fellow in eligible:
-            ok = save_event_attendance(
-                event_id=event["id"],
-                fellow_id=fellow["id"],
-                fellow_name=fellow["name"],
-                attended=checks[fellow["id"]],
-            )
-            if not ok:
-                errors.append(fellow["name"])
-        if errors:
-            st.error(f"Failed to save attendance for: {', '.join(errors)}")
-        else:
+        # Build a single map and write everything in one batch (1 read + 1-2 writes)
+        # instead of calling save_event_attendance() N times, which fires N get_all_records()
+        # calls and hits the Google Sheets 60-reads/min quota.
+        attendance_map = {
+            fellow["id"]: (fellow["name"], checks[fellow["id"]], "")
+            for fellow in eligible
+        }
+        ok = save_event_attendance_batch(event_id=event["id"], attendance_map=attendance_map)
+        if ok:
             st.success("Attendance saved!")
             st.session_state.events_attendance_event_id = None
             st.rerun()

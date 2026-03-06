@@ -790,6 +790,64 @@ def save_event_attendance(event_id: str, fellow_id: str, fellow_name: str,
         return False
 
 
+def save_event_attendance_batch(event_id: str, attendance_map: dict) -> bool:
+    """
+    Batch upsert attendance for all fellows at one event in a single API round-trip.
+
+    attendance_map: {fellow_id: (fellow_name, attended, notes)}
+
+    Strategy:
+      1. Read the attendance sheet ONCE.
+      2. Build a lookup of existing (event_id, fellow_id) → row number.
+      3. Collect updates (existing rows) and new rows (inserts) in memory.
+      4. Write all updates via one batch_update call and all inserts via one append_rows call.
+
+    This replaces the old per-fellow loop that called get_all_records() N times,
+    which caused 429 quota errors when saving attendance for large cohorts.
+    """
+    try:
+        ws = _worksheet(EVENT_ATTENDANCE_SHEET)
+        rows = ws.get_all_records()  # single read
+
+        # Build lookup: (event_id, fellow_id) → sheet row number (1-indexed, row 1 = header)
+        existing: dict[tuple, int] = {}
+        for i, row in enumerate(rows, start=2):
+            key = (str(row.get("Event ID", "")), str(row.get("Fellow ID", "")))
+            existing[key] = i
+
+        batch_updates = []  # for ws.batch_update()
+        new_rows = []       # for ws.append_rows()
+
+        for fellow_id, (fellow_name, attended, notes) in attendance_map.items():
+            key = (event_id, fellow_id)
+            attended_str = "TRUE" if attended else "FALSE"
+            if key in existing:
+                row_num = existing[key]
+                batch_updates.append({
+                    "range": f"E{row_num}:F{row_num}",
+                    "values": [[attended_str, notes]],
+                })
+            else:
+                new_rows.append([
+                    _new_id(),    # A: Record ID
+                    event_id,     # B: Event ID
+                    fellow_id,    # C: Fellow ID
+                    fellow_name,  # D: Fellow Name
+                    attended_str, # E: Attended?
+                    notes,        # F: Notes
+                ])
+
+        if batch_updates:
+            ws.batch_update(batch_updates, value_input_option="USER_ENTERED")
+        if new_rows:
+            ws.append_rows(new_rows, value_input_option="USER_ENTERED")
+
+        return True
+    except Exception as e:
+        st.error(f"Failed to save attendance: {e}")
+        return False
+
+
 def get_quarter_compliance(fellows: list, events: list, attendance: list) -> dict:
     """
     Compute quarterly attendance compliance for each CIF/SCIF fellow.
