@@ -133,7 +133,8 @@ def login_page():
 if st.session_state.get("authenticated"):
     current_fellows = st.Page("pages/current-fellows-page.py", title="Current Fellows", default=True)
     alumni = st.Page("pages/alumni-page.py", title="Alumni")
-    pg = st.navigation([current_fellows, alumni])
+    events = st.Page("pages/events-page.py", title="Events & Attendance")
+    pg = st.navigation([current_fellows, alumni, events])
 else:
     pg = st.navigation([st.Page(login_page, title="Log in", default=True)])
 

@@ -1,14 +1,28 @@
 import streamlit as st
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from styles import get_css
 from helpers import (
     fetch_fellows, create_fellow, update_fellow, update_fellow_checkin,
     fetch_checkins, add_checkin, delete_checkin,
     fetch_status_reports, add_status_report, update_status_report,
     get_required_report_months, calculate_report_streak,
     calculate_days_since, calculate_days_until, GOOGLE_SHEET_URL,
-    FORM_RESPONSES_URL
+    FORM_RESPONSES_URL,
+    fetch_events, fetch_all_event_attendance, get_quarter_compliance,
+    _date_to_quarter, _is_tracked_cohort,
 )
+
+EVENT_TYPE_COLORS = {
+    "Happy Hour":        {"bg": "#dbeafe", "text": "#1d4ed8", "dot": "#3b82f6"},
+    "Site Visit":        {"bg": "#dcfce7", "text": "#166534", "dot": "#22c55e"},
+    "Social":            {"bg": "#ffedd5", "text": "#9a3412", "dot": "#f97316"},
+    "Career Development":{"bg": "#f3e8ff", "text": "#7c3aed", "dot": "#8b5cf6"},
+    "Speaker Series":    {"bg": "#fef9c3", "text": "#854d0e", "dot": "#eab308"},
+    "Check-ins":         {"bg": "#f1f5f9", "text": "#475569", "dot": "#94a3b8"},
+    "Conference":        {"bg": "#fee2e2", "text": "#991b1b", "dot": "#ef4444"},
+    "Recruitment":       {"bg": "#f3f4f6", "text": "#374151", "dot": "#6b7280"},
+}
 
 def _cohort_sort_key(cohort_str: str) -> datetime:
     """Parse a cohort string into a datetime for correct chronological sorting.
@@ -53,463 +67,7 @@ if "trigger_modal" not in st.session_state:
     st.session_state.trigger_modal = False
 
 # ============ CUSTOM CSS ============
-st.markdown("""
-<style>
-    .stApp {
-        background-color: #f8fafc;
-    }
-
-    /* Force light mode styling */
-    [data-testid="stAppViewContainer"] {
-        background-color: #f8fafc;
-    }
-
-    [data-testid="stHeader"] {
-        background-color: #f8fafc;
-    }
-
-    h1, h2, h3, p, span, label {
-        color: #1f2937 !important;
-    }
-    .stat-card {
-        background: white;
-        padding: 1.25rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        margin: 0;
-    }
-    .stat-label {
-        color: #6b7280;
-        font-size: 0.875rem;
-        margin: 0;
-    }
-    .fellow-card {
-        background: white;
-        padding: 1.25rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .fellow-card:hover {
-        border-color: #93c5fd;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-    .status-on-track { background: #dcfce7; color: #166534; border-radius: 9999px; }
-    .status-flagged { background: #fef9c3; color: #854d0e; border-radius: 9999px; }
-    .status-ending-soon { background: #ffedd5; color: #9a3412; border-radius: 9999px; }
-    .party-democrat { background: #dbeafe; color: #1d4ed8; }
-    .party-republican { background: #fee2e2; color: #dc2626; }
-    .party-independent { background: #f3e8ff; color: #7c3aed; }
-    .fellow-type-senior { background: #e0e7ff; color: #4338ca; }
-    .fellow-type-cif { background: #f1f5f9; color: #475569; }
-    .needs-checkin { background: #fef9c3; color: #854d0e; }
-    div[data-testid="stMetric"] {
-        background-color: white;
-        padding: 1rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    /* Chart cards — match fellow card styling */
-    [data-testid="stPlotlyChart"] {
-        background-color: white;
-        border-radius: 0.75rem !important;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        overflow: hidden;
-        margin-top: 0.5rem;
-    }
-
-    /* Tighten gap between stats and charts */
-    [data-testid="stPlotlyChart"] > div {
-        border-radius: 0.75rem !important;
-    }
-
-    div[data-testid="stMetric"] label {
-        color: #6b7280 !important;
-    }
-
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #1f2937 !important;
-    }
-
-    /* Help icon (question mark) styling */
-    [data-testid="stMetric"] svg {
-        color: #6b7280 !important;
-        stroke: #6b7280 !important;
-    }
-
-    /* Tooltip styling */
-    [data-testid="stTooltipIcon"] {
-        color: #6b7280 !important;
-    }
-
-    [data-testid="stTooltipIcon"] svg {
-        color: #6b7280 !important;
-        stroke: #6b7280 !important;
-    }
-
-    /* Tooltip popup content */
-    div[data-baseweb="tooltip"] {
-        background-color: #1f2937 !important;
-        color: #ffffff !important;
-    }
-
-    div[data-baseweb="tooltip"] div {
-        color: #ffffff !important;
-    }
-
-    [data-testid="stSidebar"] {
-        background-color: #ffffff !important;
-    }
-
-    [data-testid="stSidebar"] * {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] h4,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] a {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stSidebar"] hr {
-        border-color: #e5e7eb !important;
-    }
-
-    [data-testid="stSidebarContent"] {
-        background-color: #ffffff !important;
-    }
-
-    .stButton button {
-        background-color: #3b82f6 !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 0.5rem !important;
-    }
-
-    .stButton button:hover {
-        background-color: #2563eb !important;
-        color: #ffffff !important;
-    }
-
-    .stSelectbox label, .stTextInput label {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] {
-        background-color: white;
-        border-radius: 0.75rem;
-    }
-
-    [data-testid="stExpander"] summary {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] summary span {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] div {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpanderDetails"] {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpanderDetails"] p {
-        color: #1f2937 !important;
-    }
-
-    /* Modal styles */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        padding-top: 50px;
-        overflow-y: auto;
-    }
-
-    .modal-container {
-        background: white;
-        border-radius: 1rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        width: 90%;
-        max-width: 700px;
-        max-height: calc(100vh - 100px);
-        overflow-y: auto;
-        margin-bottom: 50px;
-    }
-
-    .modal-header {
-        padding: 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        position: sticky;
-        top: 0;
-        background: white;
-        border-radius: 1rem 1rem 0 0;
-        z-index: 10;
-    }
-
-    .modal-body {
-        padding: 1.5rem;
-    }
-
-    .modal-close-btn {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        background: #f3f4f6;
-        border: none;
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        cursor: pointer;
-        font-size: 1.25rem;
-        color: #6b7280;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-close-btn:hover {
-        background: #e5e7eb;
-        color: #1f2937;
-    }
-
-    /* Force light mode for dialogs */
-    [data-testid="stDialog"],
-    [data-testid="stDialog"] > div,
-    [data-testid="stDialog"] [data-testid="stVerticalBlock"],
-    [data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"],
-    [data-testid="stDialog"] section,
-    [data-testid="stDialog"] [role="dialog"],
-    [role="dialog"],
-    [role="dialog"] > div,
-    div[data-modal-container="true"],
-    .stDialog > div {
-        background-color: white !important;
-    }
-
-    [data-testid="stDialog"] h1,
-    [data-testid="stDialog"] h2,
-    [data-testid="stDialog"] h3,
-    [data-testid="stDialog"] h4,
-    [data-testid="stDialog"] h5,
-    [data-testid="stDialog"] p,
-    [data-testid="stDialog"] span,
-    [data-testid="stDialog"] label,
-    [data-testid="stDialog"] div,
-    [role="dialog"] h1,
-    [role="dialog"] h2,
-    [role="dialog"] h3,
-    [role="dialog"] h4,
-    [role="dialog"] p,
-    [role="dialog"] span,
-    [role="dialog"] div {
-        color: #1f2937 !important;
-    }
-
-    /* Dialog header specifically */
-    [data-testid="stDialogHeader"],
-    [data-testid="stDialog"] header,
-    [role="dialog"] header {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stDialog"] a,
-    [role="dialog"] a {
-        color: #2563eb !important;
-    }
-
-    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stDialog"] [data-testid="stCaptionContainer"],
-    [role="dialog"] [data-testid="stCaptionContainer"] {
-        color: #6b7280 !important;
-    }
-
-    [data-testid="stDialog"] hr,
-    [role="dialog"] hr {
-        border-color: #e5e7eb !important;
-    }
-
-    /* Form inputs in dialog */
-    [data-testid="stDialog"] input,
-    [data-testid="stDialog"] textarea,
-    [data-testid="stDialog"] select,
-    [role="dialog"] input,
-    [role="dialog"] textarea,
-    [role="dialog"] select {
-        background-color: white !important;
-        color: #1f2937 !important;
-        border-color: #d1d5db !important;
-    }
-
-    /* Select boxes in dialog */
-    [data-testid="stDialog"] [data-baseweb="select"],
-    [data-testid="stDialog"] [data-baseweb="select"] > div,
-    [role="dialog"] [data-baseweb="select"],
-    [role="dialog"] [data-baseweb="select"] > div {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    /* Dialog close button (X) */
-    [data-testid="stDialog"] button[aria-label="Close"],
-    [role="dialog"] button[aria-label="Close"],
-    [data-testid="stDialogCloseButton"],
-    [data-testid="stDialog"] [data-testid="baseButton-header"],
-    [role="dialog"] [data-testid="baseButton-header"] {
-        color: #1f2937 !important;
-        background-color: #f3f4f6 !important;
-    }
-
-    [data-testid="stDialog"] button[aria-label="Close"]:hover,
-    [role="dialog"] button[aria-label="Close"]:hover {
-        background-color: #e5e7eb !important;
-        color: #1f2937 !important;
-    }
-
-    /* Close button icon/svg */
-    [data-testid="stDialog"] button[aria-label="Close"] svg,
-    [role="dialog"] button[aria-label="Close"] svg,
-    [data-testid="stDialog"] [data-testid="baseButton-header"] svg {
-        stroke: #1f2937 !important;
-        color: #1f2937 !important;
-    }
-
-    /* Force light mode globally */
-    [data-testid="stAppViewContainer"],
-    [data-testid="stApp"],
-    .main,
-    .block-container {
-        background-color: #f8fafc !important;
-        color: #1f2937 !important;
-    }
-
-    /* Expander / Filters section */
-    [data-testid="stExpander"],
-    [data-testid="stExpander"] > div,
-    [data-testid="stExpander"] details,
-    [data-testid="stExpander"] summary,
-    [data-testid="stExpanderDetails"] {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] summary span,
-    [data-testid="stExpander"] p {
-        color: #1f2937 !important;
-    }
-
-    /* All form inputs - light mode */
-    input, textarea, select,
-    [data-baseweb="input"],
-    [data-baseweb="input"] input,
-    [data-baseweb="textarea"],
-    [data-baseweb="select"],
-    [data-baseweb="select"] > div {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    /* Select dropdown text */
-    [data-baseweb="select"] span,
-    [data-baseweb="select"] div[class*="valueContainer"],
-    [data-baseweb="select"] div[class*="singleValue"] {
-        color: #1f2937 !important;
-    }
-
-    /* Dropdown menu */
-    [data-baseweb="popover"],
-    [data-baseweb="menu"],
-    [data-baseweb="popover"] ul,
-    [data-baseweb="menu"] ul,
-    [role="listbox"],
-    [role="listbox"] li,
-    [role="option"] {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    [role="option"]:hover {
-        background-color: #f3f4f6 !important;
-    }
-
-    /* Labels */
-    .stSelectbox label,
-    .stTextInput label,
-    .stDateInput label,
-    .stTextArea label,
-    [data-testid="stWidgetLabel"] {
-        color: #1f2937 !important;
-    }
-
-    /* Placeholder text */
-    input::placeholder,
-    textarea::placeholder {
-        color: #9ca3af !important;
-    }
-
-    /* Streamlit header toolbar icons */
-    [data-testid="stToolbar"],
-    [data-testid="stToolbar"] button,
-    [data-testid="stDecoration"],
-    [data-testid="stStatusWidget"],
-    header[data-testid="stHeader"] {
-        background-color: #f8fafc !important;
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stToolbar"] svg,
-    [data-testid="stToolbar"] button svg,
-    header[data-testid="stHeader"] svg {
-        color: #1f2937 !important;
-        stroke: #1f2937 !important;
-        fill: #1f2937 !important;
-    }
-
-    /* Main menu button */
-    [data-testid="stMainMenu"],
-    [data-testid="stMainMenu"] button {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stMainMenu"] svg {
-        color: #1f2937 !important;
-        stroke: #1f2937 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.markdown(get_css(), unsafe_allow_html=True)
 
 
 # ============ MAIN APP ============
@@ -589,7 +147,7 @@ def main():
         fig.update_layout(
             title=dict(
                 text=title,
-                font=dict(size=13, color="#1f2937", family="system-ui, -apple-system, sans-serif"),
+                font=dict(size=13, color="#6b7280", family="system-ui, -apple-system, sans-serif"),
                 x=0, xanchor="left", pad=dict(l=14, t=6),
             ),
             margin=dict(t=40, b=20, l=16, r=16),
@@ -597,11 +155,11 @@ def main():
             showlegend=True,
             legend=dict(
                 orientation="v",
-                font=dict(size=12, color="#374151"),
+                font=dict(size=12, color="#6b7280"),
                 x=0.58, y=0.5, xanchor="left",
             ),
-            paper_bgcolor="white",
-            plot_bgcolor="white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
         )
         return fig
 
@@ -815,17 +373,17 @@ def show_fellow_card(fellow):
     # CARD VIEW
     office_html = ""
     if fellow["office"]:
-        office_html = f'<div style="color:#374151;font-size:0.875rem;margin-bottom:0.25rem;">{fellow["office"]}</div>'
+        office_html = f'<div style="color:var(--tc-text4);font-size:0.875rem;margin-bottom:0.25rem;">{fellow["office"]}</div>'
 
     term_html = ""
     if fellow["start_date"] and fellow["end_date"]:
-        term_html = f'<div style="color:#6b7280;font-size:0.8rem;margin-bottom:0.25rem;">Fellowship Term: {fellow["start_date"]} - {fellow["end_date"]}</div>'
+        term_html = f'<div style="color:var(--tc-text2);font-size:0.8rem;margin-bottom:0.25rem;">Fellowship Term: {fellow["start_date"]} - {fellow["end_date"]}</div>'
 
     checkin_html = ""
     if fellow["last_check_in"]:
-        checkin_html = f'<div style="color:#6b7280;font-size:0.8rem;">Last check-in: {fellow["last_check_in"]}</div>'
+        checkin_html = f'<div style="color:var(--tc-text2);font-size:0.8rem;">Last check-in: {fellow["last_check_in"]}</div>'
 
-    card_html = f'<div style="background-color:white;padding:1.25rem;border-radius:0.75rem;border:1px solid #e5e7eb;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:#1f2937;">{fellow["name"]}</div><div style="color:#6b7280;font-size:0.875rem;margin-bottom:0.75rem;">Cohort: {fellow["cohort"]}</div><div style="margin-bottom:0.5rem;"><span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{bg_color};color:{text_color};">{status_label}</span>{checkin_badge}</div><div style="margin-bottom:0.5rem;">{type_html}{party_html}</div>{office_html}{term_html}{checkin_html}</div>'
+    card_html = f'<div style="background:var(--tc-surface);padding:1.25rem;border-radius:0.75rem;border:1px solid var(--tc-border);margin-bottom:1rem;box-shadow:0 1px 3px var(--tc-shadow);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:var(--tc-text);">{fellow["name"]}</div><div style="color:var(--tc-text2);font-size:0.875rem;margin-bottom:0.75rem;">Cohort: {fellow["cohort"]}</div><div style="margin-bottom:0.5rem;"><span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{bg_color};color:{text_color};">{status_label}</span>{checkin_badge}</div><div style="margin-bottom:0.5rem;">{type_html}{party_html}</div>{office_html}{term_html}{checkin_html}</div>'
 
     st.markdown(card_html, unsafe_allow_html=True)
 
@@ -914,12 +472,13 @@ def show_fellow_modal(fellow):
     checkin_count = len(checkins)
 
     (tab_contact, tab_placement, tab_background,
-     tab_reports, tab_checkins) = st.tabs([
+     tab_reports, tab_checkins, tab_events) = st.tabs([
         "Contact",
         "Placement",
         "Background",
-        f"Status Reports",
+        "Status Reports",
         f"Check-ins ({checkin_count})",
+        "Events",
     ])
 
     # ── Contact tab ─────────────────────────────────────────────────────────────
@@ -975,8 +534,8 @@ def show_fellow_modal(fellow):
         if fellow["notes"]:
             st.markdown("##### Notes")
             st.markdown(
-                f'<div style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:0.5rem;'
-                f'padding:0.75rem 1rem;font-size:0.9rem;color:#374151;line-height:1.6;">'
+                f'<div style="background:var(--tc-note-bg);border:1px solid var(--tc-note-border);border-radius:0.5rem;'
+                f'padding:0.75rem 1rem;font-size:0.9rem;color:var(--tc-text4);line-height:1.6;">'
                 f'{fellow["notes"]}</div>',
                 unsafe_allow_html=True
             )
@@ -1028,7 +587,7 @@ def show_fellow_modal(fellow):
                 elif is_overdue:
                     st.markdown(f'<div style="background-color:#fee2e2;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #ef4444;"><span style="color:#991b1b;font-weight:600;">❌ {month}</span> — OVERDUE (was due {last_day.strftime("%b %d")})</div>', unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div style="background-color:#f8fafc;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #94a3b8;"><span style="color:#475569;font-weight:600;">⬜ {month}</span> — Due {last_day.strftime("%b %d")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background:var(--tc-surface2);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #94a3b8;"><span style="color:#475569;font-weight:600;">⬜ {month}</span> — Due {last_day.strftime("%b %d")}</div>', unsafe_allow_html=True)
 
             # Mark as submitted form
             st.markdown("##### Mark Report as Submitted")
@@ -1102,13 +661,14 @@ def show_fellow_modal(fellow):
 
         if checkins:
             for checkin in checkins:
-                st.markdown(f"""
-                <div style="background-color:#f8fafc;padding:0.75rem;border-radius:0.5rem;margin-bottom:0.25rem;border-left:3px solid #3b82f6;">
-                    <div style="font-weight:600;color:#1f2937;font-size:0.9rem;">{checkin['date']} • {checkin['check_in_type']}</div>
-                    <div style="color:#4b5563;font-size:0.85rem;margin-top:0.25rem;">{checkin['notes']}</div>
-                    <div style="color:#6b7280;font-size:0.75rem;margin-top:0.25rem;">— {checkin['staff_member']}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="background:var(--tc-checkin-bg);padding:0.75rem;border-radius:0.5rem;margin-bottom:0.25rem;border-left:3px solid #3b82f6;">'
+                    f'<div style="font-weight:600;color:var(--tc-text);font-size:0.9rem;">{checkin["date"]} • {checkin["check_in_type"]}</div>'
+                    f'<div style="color:var(--tc-text4);font-size:0.85rem;margin-top:0.25rem;">{checkin["notes"]}</div>'
+                    f'<div style="color:var(--tc-text2);font-size:0.75rem;margin-top:0.25rem;">— {checkin["staff_member"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
                 if st.button("Delete", key=f"delete_checkin_{checkin['id']}", use_container_width=True):
                     if delete_checkin(checkin["id"]):
                         st.success("Check-in deleted!")
@@ -1118,6 +678,79 @@ def show_fellow_modal(fellow):
                 st.markdown("<div style='margin-bottom:1rem;'></div>", unsafe_allow_html=True)
         else:
             st.caption("No check-ins recorded yet.")
+
+    # ── Events tab ───────────────────────────────────────────────────────────
+    with tab_events:
+        if fellow.get("fellow_type") == "AISF" or not _is_tracked_cohort(fellow.get("cohort", "")):
+            st.caption("Events attendance tracking applies to Jan 2026 CIF/SCIF fellows and future cohorts only.")
+        else:
+            all_events = fetch_events()
+            all_attendance = fetch_all_event_attendance()
+            all_fellows = fetch_fellows()
+
+            compliance = get_quarter_compliance([fellow], all_events, all_attendance)
+            qc = compliance.get(fellow["id"], {})
+            quarters = sorted(qc.keys())
+
+            # Quarterly compliance pills
+            if quarters:
+                pills_html = ""
+                for q in quarters:
+                    status = qc[q]
+                    bg = "#dcfce7" if status == "met" else "#fee2e2"
+                    text = "#166534" if status == "met" else "#991b1b"
+                    icon = "✓" if status == "met" else "✗"
+                    pills_html += (
+                        f'<span style="display:inline-block;padding:0.25rem 0.7rem;'
+                        f'border-radius:9999px;font-size:0.78rem;font-weight:600;'
+                        f'background:{bg};color:{text};margin-right:0.35rem;">'
+                        f'{icon} {q}</span>'
+                    )
+                st.markdown(
+                    f'<div style="margin-bottom:1rem;">{pills_html}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.caption("Fellows must attend ≥1 required event per quarter.")
+            else:
+                st.caption("No past required events yet — check back after the first event.")
+
+            st.markdown("<div style='margin:0.75rem 0;'></div>", unsafe_allow_html=True)
+
+            # Event history
+            fellow_att = {r["event_id"]: r["attended"] for r in all_attendance
+                          if r["fellow_id"] == fellow["id"]}
+            past_events = sorted(
+                [e for e in all_events
+                 if e["date"] and datetime.strptime(e["date"][:10], "%Y-%m-%d").date() < datetime.now().date()],
+                key=lambda e: e["date"],
+            )
+
+            if not past_events:
+                st.caption("No past events yet.")
+            else:
+                st.markdown("**Event History**")
+                for e in past_events:
+                    attended = fellow_att.get(e["id"])
+                    if attended is None:
+                        badge_bg, badge_color, badge_text = "#f3f4f6", "#6b7280", "— No record"
+                    elif attended:
+                        badge_bg, badge_color, badge_text = "#dcfce7", "#166534", "✓ Attended"
+                    else:
+                        badge_bg, badge_color, badge_text = "#fee2e2", "#991b1b", "✗ Absent"
+                    dot = EVENT_TYPE_COLORS.get(e["type"], {}).get("dot", "#6366f1")
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:0.6rem;'
+                        f'margin-bottom:0.4rem;">'
+                        f'<div style="width:7px;height:7px;border-radius:50%;'
+                        f'background:{dot};flex-shrink:0;"></div>'
+                        f'<span style="font-size:0.85rem;color:var(--tc-text4);flex:1;">{e["name"]}</span>'
+                        f'<span style="font-size:0.75rem;color:var(--tc-text3);">{e.get("quarter","")}</span>'
+                        f'<span style="display:inline-block;padding:0.2rem 0.6rem;'
+                        f'border-radius:9999px;font-size:0.75rem;font-weight:600;'
+                        f'background:{badge_bg};color:{badge_color};">{badge_text}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
     st.markdown("---")
 

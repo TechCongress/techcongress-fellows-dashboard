@@ -38,6 +38,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import uuid
+import re
 from datetime import datetime, timedelta
 
 
@@ -56,10 +57,17 @@ SCOPES = [
 ]
 
 # Sheet (tab) names — must match the actual tab names in your spreadsheet
-FELLOWS_SHEET      = "Fellows"
-CHECKINS_SHEET     = "Check-ins"
-REPORTS_SHEET      = "Status Reports"
-ALUMNI_SHEET       = "Alumni"
+FELLOWS_SHEET          = "Fellows"
+CHECKINS_SHEET         = "Check-ins"
+REPORTS_SHEET          = "Status Reports"
+ALUMNI_SHEET           = "Alumni"
+EVENTS_SHEET           = "Events"
+EVENT_ATTENDANCE_SHEET = "Event Attendance"
+
+EVENT_TYPES = [
+    "Happy Hour", "Site Visit", "Social", "Career Development",
+    "Speaker Series", "Check-ins", "Conference", "Recruitment",
+]
 
 
 # ============ CONNECTION HELPERS ============
@@ -624,3 +632,201 @@ def calculate_days_until(date_str: str) -> int:
     if not date:
         return 999
     return (date - datetime.now()).days
+
+
+# ============ EVENTS CRUD ============
+
+def _date_to_quarter(date_str: str) -> str:
+    """Convert a date string to a quarter label like 'Q1 2026'."""
+    d = _parse_date(date_str)
+    if not d:
+        return ""
+    q = (d.month - 1) // 3 + 1
+    return f"Q{q} {d.year}"
+
+
+def _is_tracked_cohort(cohort_str: str) -> bool:
+    """
+    Return True if a cohort is January 2026 or later.
+
+    Fellows in earlier cohorts (pre-Jan 2026) are not required to attend events.
+    Handles formats like 'Jan 2026 CIF/SCIF', 'January 2026', 'Jan 2026'.
+    """
+    if not cohort_str:
+        return False
+    cutoff = datetime(2026, 1, 1)
+    # Try to extract a "Month Year" pattern (e.g. "Jan 2026" from "Jan 2026 CIF/SCIF")
+    match = re.search(r'([A-Za-z]+ \d{4})', str(cohort_str))
+    if match:
+        for fmt in ("%b %Y", "%B %Y"):
+            try:
+                return datetime.strptime(match.group(1), fmt) >= cutoff
+            except ValueError:
+                continue
+    # Fallback: year-only pattern (e.g. "2026")
+    match = re.search(r'\b(\d{4})\b', str(cohort_str))
+    if match:
+        try:
+            return datetime(int(match.group(1)), 1, 1) >= cutoff
+        except (ValueError, OverflowError):
+            pass
+    return False
+
+
+def fetch_events() -> list[dict]:
+    """Fetch all events from the Events sheet, sorted by date ascending."""
+    ws = _worksheet(EVENTS_SHEET)
+    rows = ws.get_all_records()
+    events = []
+    for row in rows:
+        if not str(row.get("Event ID", "")).strip():
+            continue  # skip blank rows
+        events.append({
+            "id":          str(row.get("Event ID", "")),
+            "name":        str(row.get("Event Name", "")),
+            "date":        str(row.get("Date", "")),
+            "type":        str(row.get("Type", "")),
+            "location":    str(row.get("Location", "")),
+            "venue":       str(row.get("Venue", "")),
+            "cohort":      str(row.get("Cohort", "")),
+            "quarter":     str(row.get("Quarter", "")),
+            "description": str(row.get("Description", "")),
+            "required":    _to_bool(row.get("Required for Fellows?", True)),
+            "staffed_by":  str(row.get("Staffed By", "")),
+        })
+    events.sort(key=lambda e: _parse_date(e["date"]) or datetime.min)
+    return events
+
+
+def _event_row_values(event_id: str, data: dict) -> list:
+    """Build ordered list of cell values for an event row (columns A–K)."""
+    return [
+        event_id,                                               # A: Event ID
+        data.get("name", ""),                                   # B: Event Name
+        data.get("date", ""),                                   # C: Date
+        data.get("type", ""),                                   # D: Type
+        data.get("location", ""),                               # E: Location
+        data.get("venue", ""),                                  # F: Venue
+        data.get("cohort", ""),                                 # G: Cohort
+        data.get("quarter", ""),                                # H: Quarter
+        data.get("description", ""),                            # I: Description
+        "TRUE" if data.get("required", True) else "FALSE",     # J: Required for Fellows?
+        data.get("staffed_by", ""),                             # K: Staffed By
+    ]
+
+
+def add_event(event_data: dict) -> bool:
+    """Append a new event row to the Events sheet."""
+    try:
+        ws = _worksheet(EVENTS_SHEET)
+        event_id = _new_id()
+        ws.append_row(_event_row_values(event_id, event_data), value_input_option="USER_ENTERED")
+        return True
+    except Exception as e:
+        st.error(f"Failed to add event: {e}")
+        return False
+
+
+def update_event(event_id: str, event_data: dict) -> bool:
+    """Update an existing event row by Event ID."""
+    try:
+        ws = _worksheet(EVENTS_SHEET)
+        cell = ws.find(event_id, in_column=1)
+        if not cell:
+            st.error(f"Event {event_id} not found.")
+            return False
+        ws.update(f"A{cell.row}:K{cell.row}", [_event_row_values(event_id, event_data)], value_input_option="USER_ENTERED")
+        return True
+    except Exception as e:
+        st.error(f"Failed to update event: {e}")
+        return False
+
+
+def fetch_all_event_attendance() -> list[dict]:
+    """Fetch all rows from the Event Attendance sheet."""
+    ws = _worksheet(EVENT_ATTENDANCE_SHEET)
+    rows = ws.get_all_records()
+    records = []
+    for row in rows:
+        records.append({
+            "id":          str(row.get("Record ID", "")),
+            "event_id":    str(row.get("Event ID", "")),
+            "fellow_id":   str(row.get("Fellow ID", "")),
+            "fellow_name": str(row.get("Fellow Name", "")),
+            "attended":    _to_bool(row.get("Attended?", False)),
+            "notes":       str(row.get("Notes", "")),
+        })
+    return records
+
+
+def save_event_attendance(event_id: str, fellow_id: str, fellow_name: str,
+                          attended: bool, notes: str = "") -> bool:
+    """
+    Upsert an attendance record for one fellow at one event.
+    Updates column E (Attended?) if a record already exists; appends a new row otherwise.
+    """
+    try:
+        ws = _worksheet(EVENT_ATTENDANCE_SHEET)
+        rows = ws.get_all_records()
+        for i, row in enumerate(rows, start=2):  # row 1 is the header
+            if (str(row.get("Event ID", "")) == event_id and
+                    str(row.get("Fellow ID", "")) == fellow_id):
+                ws.update_cell(i, 5, "TRUE" if attended else "FALSE")
+                ws.update_cell(i, 6, notes)
+                return True
+        # No existing record — append a new row
+        record_id = _new_id()
+        ws.append_row([
+            record_id,                          # A: Record ID
+            event_id,                           # B: Event ID
+            fellow_id,                          # C: Fellow ID
+            fellow_name,                        # D: Fellow Name
+            "TRUE" if attended else "FALSE",    # E: Attended?
+            notes,                              # F: Notes
+        ], value_input_option="USER_ENTERED")
+        return True
+    except Exception as e:
+        st.error(f"Failed to save attendance: {e}")
+        return False
+
+
+def get_quarter_compliance(fellows: list, events: list, attendance: list) -> dict:
+    """
+    Compute quarterly attendance compliance for each CIF/SCIF fellow.
+
+    Returns: {fellow_id: {quarter_label: "met" | "not_met"}}
+
+    A quarter appears in a fellow's result only if at least one past required
+    event falls in that quarter. AISF fellows are excluded entirely.
+    """
+    today = datetime.now().date()
+
+    # Build lookup: {event_id: {fellow_id: attended_bool}}
+    att_lookup: dict = {}
+    for rec in attendance:
+        att_lookup.setdefault(rec["event_id"], {})[rec["fellow_id"]] = rec["attended"]
+
+    # Past required events grouped by quarter
+    quarter_events: dict = {}
+    for event in events:
+        if not event.get("required"):
+            continue
+        d = _parse_date(event["date"])
+        if not d or d.date() >= today:
+            continue
+        q = event.get("quarter") or _date_to_quarter(event["date"])
+        if q:
+            quarter_events.setdefault(q, []).append(event["id"])
+
+    result: dict = {}
+    for fellow in fellows:
+        if fellow.get("fellow_type") == "AISF":
+            continue
+        fid = fellow["id"]
+        result[fid] = {}
+        for quarter, event_ids in quarter_events.items():
+            attended_any = any(
+                att_lookup.get(eid, {}).get(fid, False) for eid in event_ids
+            )
+            result[fid][quarter] = "met" if attended_any else "not_met"
+    return result

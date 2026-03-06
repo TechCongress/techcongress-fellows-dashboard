@@ -5,6 +5,7 @@ from helpers import (
     fetch_alumni, create_alumni, update_alumni,
     calculate_days_since
 )
+from styles import get_css
 
 def _cohort_sort_key(cohort_str: str) -> datetime:
     """Parse a cohort string into a datetime for correct chronological sorting.
@@ -34,491 +35,36 @@ if "alumni_trigger_modal" not in st.session_state:
     st.session_state.alumni_trigger_modal = False
 
 # ============ CUSTOM CSS ============
-st.markdown("""
-<style>
-    .stApp {
-        background-color: #f8fafc;
-    }
-
-    /* Force light mode styling */
-    [data-testid="stAppViewContainer"] {
-        background-color: #f8fafc;
-    }
-
-    [data-testid="stHeader"] {
-        background-color: #f8fafc;
-    }
-
-    h1, h2, h3, p, span, label {
-        color: #1f2937 !important;
-    }
-    .stat-card {
-        background: white;
-        padding: 1.25rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        margin: 0;
-    }
-    .stat-label {
-        color: #6b7280;
-        font-size: 0.875rem;
-        margin: 0;
-    }
-    .fellow-card {
-        background: white;
-        padding: 1.25rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .fellow-card:hover {
-        border-color: #93c5fd;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-    .status-on-track { background: #dcfce7; color: #166534; border-radius: 9999px; }
-    .status-flagged { background: #fef9c3; color: #854d0e; border-radius: 9999px; }
-    .status-ending-soon { background: #ffedd5; color: #9a3412; border-radius: 9999px; }
-    .party-democrat { background: #dbeafe; color: #1d4ed8; }
-    .party-republican { background: #fee2e2; color: #dc2626; }
-    .party-independent { background: #f3e8ff; color: #7c3aed; }
-    .fellow-type-senior { background: #e0e7ff; color: #4338ca; }
-    .fellow-type-cif { background: #f1f5f9; color: #475569; }
-    .needs-checkin { background: #fef9c3; color: #854d0e; }
-    div[data-testid="stMetric"] {
-        background-color: white;
-        padding: 1rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    /* Chart cards — match alumni card styling */
-    [data-testid="stPlotlyChart"] {
-        background-color: white;
-        border-radius: 0.75rem !important;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        overflow: hidden;
-        margin-top: 0.5rem;
-    }
-
-    [data-testid="stPlotlyChart"] > div {
-        border-radius: 0.75rem !important;
-    }
-
-    div[data-testid="stMetric"] label {
-        color: #6b7280 !important;
-    }
-
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #1f2937 !important;
-    }
-
-    /* Help icon (question mark) styling */
-    [data-testid="stMetric"] svg {
-        color: #6b7280 !important;
-        stroke: #6b7280 !important;
-    }
-
-    /* Tooltip styling */
-    [data-testid="stTooltipIcon"] {
-        color: #6b7280 !important;
-    }
-
-    [data-testid="stTooltipIcon"] svg {
-        color: #6b7280 !important;
-        stroke: #6b7280 !important;
-    }
-
-    /* Tooltip popup content */
-    div[data-baseweb="tooltip"] {
-        background-color: #1f2937 !important;
-        color: #ffffff !important;
-    }
-
-    div[data-baseweb="tooltip"] div {
-        color: #ffffff !important;
-    }
-
-    [data-testid="stSidebar"] {
-        background-color: #ffffff !important;
-    }
-
-    [data-testid="stSidebar"] * {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] h4,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] a {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stSidebar"] hr {
-        border-color: #e5e7eb !important;
-    }
-
-    [data-testid="stSidebarContent"] {
-        background-color: #ffffff !important;
-    }
-
-    .stButton button {
-        background-color: #3b82f6 !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 0.5rem !important;
-    }
-
-    .stButton button:hover {
-        background-color: #2563eb !important;
-        color: #ffffff !important;
-    }
-
-    .stSelectbox label, .stTextInput label {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] {
-        background-color: white;
-        border-radius: 0.75rem;
-    }
-
-    [data-testid="stExpander"] summary {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] summary span {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] div {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpanderDetails"] {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpanderDetails"] p {
-        color: #1f2937 !important;
-    }
-
-    /* Modal styles */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        padding-top: 50px;
-        overflow-y: auto;
-    }
-
-    .modal-container {
-        background: white;
-        border-radius: 1rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        width: 90%;
-        max-width: 700px;
-        max-height: calc(100vh - 100px);
-        overflow-y: auto;
-        margin-bottom: 50px;
-    }
-
-    .modal-header {
-        padding: 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        position: sticky;
-        top: 0;
-        background: white;
-        border-radius: 1rem 1rem 0 0;
-        z-index: 10;
-    }
-
-    .modal-body {
-        padding: 1.5rem;
-    }
-
-    .modal-close-btn {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        background: #f3f4f6;
-        border: none;
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        cursor: pointer;
-        font-size: 1.25rem;
-        color: #6b7280;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-close-btn:hover {
-        background: #e5e7eb;
-        color: #1f2937;
-    }
-
-    /* Force light mode for dialogs */
-    [data-testid="stDialog"],
-    [data-testid="stDialog"] > div,
-    [data-testid="stDialog"] [data-testid="stVerticalBlock"],
-    [data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"],
-    [data-testid="stDialog"] section,
-    [data-testid="stDialog"] [role="dialog"],
-    [role="dialog"],
-    [role="dialog"] > div,
-    div[data-modal-container="true"],
-    .stDialog > div {
-        background-color: white !important;
-    }
-
-    [data-testid="stDialog"] h1,
-    [data-testid="stDialog"] h2,
-    [data-testid="stDialog"] h3,
-    [data-testid="stDialog"] h4,
-    [data-testid="stDialog"] h5,
-    [data-testid="stDialog"] p,
-    [data-testid="stDialog"] span,
-    [data-testid="stDialog"] label,
-    [data-testid="stDialog"] div,
-    [role="dialog"] h1,
-    [role="dialog"] h2,
-    [role="dialog"] h3,
-    [role="dialog"] h4,
-    [role="dialog"] p,
-    [role="dialog"] span,
-    [role="dialog"] div {
-        color: #1f2937 !important;
-    }
-
-    /* Dialog header specifically */
-    [data-testid="stDialogHeader"],
-    [data-testid="stDialog"] header,
-    [role="dialog"] header {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stDialog"] a,
-    [role="dialog"] a {
-        color: #2563eb !important;
-    }
-
-    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stDialog"] [data-testid="stCaptionContainer"],
-    [role="dialog"] [data-testid="stCaptionContainer"] {
-        color: #6b7280 !important;
-    }
-
-    [data-testid="stDialog"] hr,
-    [role="dialog"] hr {
-        border-color: #e5e7eb !important;
-    }
-
-    /* Form inputs in dialog */
-    [data-testid="stDialog"] input,
-    [data-testid="stDialog"] textarea,
-    [data-testid="stDialog"] select,
-    [role="dialog"] input,
-    [role="dialog"] textarea,
-    [role="dialog"] select {
-        background-color: white !important;
-        color: #1f2937 !important;
-        border-color: #d1d5db !important;
-    }
-
-    /* Select boxes in dialog */
-    [data-testid="stDialog"] [data-baseweb="select"],
-    [data-testid="stDialog"] [data-baseweb="select"] > div,
-    [role="dialog"] [data-baseweb="select"],
-    [role="dialog"] [data-baseweb="select"] > div {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    /* Dialog close button (X) */
-    [data-testid="stDialog"] button[aria-label="Close"],
-    [role="dialog"] button[aria-label="Close"],
-    [data-testid="stDialogCloseButton"],
-    [data-testid="stDialog"] [data-testid="baseButton-header"],
-    [role="dialog"] [data-testid="baseButton-header"] {
-        color: #1f2937 !important;
-        background-color: #f3f4f6 !important;
-    }
-
-    [data-testid="stDialog"] button[aria-label="Close"]:hover,
-    [role="dialog"] button[aria-label="Close"]:hover {
-        background-color: #e5e7eb !important;
-        color: #1f2937 !important;
-    }
-
-    /* Close button icon/svg */
-    [data-testid="stDialog"] button[aria-label="Close"] svg,
-    [role="dialog"] button[aria-label="Close"] svg,
-    [data-testid="stDialog"] [data-testid="baseButton-header"] svg {
-        stroke: #1f2937 !important;
-        color: #1f2937 !important;
-    }
-
-    /* Force light mode globally */
-    [data-testid="stAppViewContainer"],
-    [data-testid="stApp"],
-    .main,
-    .block-container {
-        background-color: #f8fafc !important;
-        color: #1f2937 !important;
-    }
-
-    /* Expander / Filters section */
-    [data-testid="stExpander"],
-    [data-testid="stExpander"] > div,
-    [data-testid="stExpander"] details,
-    [data-testid="stExpander"] summary,
-    [data-testid="stExpanderDetails"] {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stExpander"] summary span,
-    [data-testid="stExpander"] p {
-        color: #1f2937 !important;
-    }
-
-    /* All form inputs - light mode */
-    input, textarea, select,
-    [data-baseweb="input"],
-    [data-baseweb="input"] input,
-    [data-baseweb="textarea"],
-    [data-baseweb="select"],
-    [data-baseweb="select"] > div {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    /* Select dropdown text */
-    [data-baseweb="select"] span,
-    [data-baseweb="select"] div[class*="valueContainer"],
-    [data-baseweb="select"] div[class*="singleValue"] {
-        color: #1f2937 !important;
-    }
-
-    /* Dropdown menu */
-    [data-baseweb="popover"],
-    [data-baseweb="menu"],
-    [data-baseweb="popover"] ul,
-    [data-baseweb="menu"] ul,
-    [role="listbox"],
-    [role="listbox"] li,
-    [role="option"] {
-        background-color: white !important;
-        color: #1f2937 !important;
-    }
-
-    [role="option"]:hover {
-        background-color: #f3f4f6 !important;
-    }
-
-    /* Labels */
-    .stSelectbox label,
-    .stTextInput label,
-    .stDateInput label,
-    .stTextArea label,
-    [data-testid="stWidgetLabel"] {
-        color: #1f2937 !important;
-    }
-
-    /* Placeholder text */
-    input::placeholder,
-    textarea::placeholder {
-        color: #9ca3af !important;
-    }
-
-    /* Streamlit header toolbar icons */
-    [data-testid="stToolbar"],
-    [data-testid="stToolbar"] button,
-    [data-testid="stDecoration"],
-    [data-testid="stStatusWidget"],
-    header[data-testid="stHeader"] {
-        background-color: #f8fafc !important;
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stToolbar"] svg,
-    [data-testid="stToolbar"] button svg,
-    header[data-testid="stHeader"] svg {
-        color: #1f2937 !important;
-        stroke: #1f2937 !important;
-        fill: #1f2937 !important;
-    }
-
-    /* Main menu button */
-    [data-testid="stMainMenu"],
-    [data-testid="stMainMenu"] button {
-        color: #1f2937 !important;
-    }
-
-    [data-testid="stMainMenu"] svg {
-        color: #1f2937 !important;
-        stroke: #1f2937 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.markdown(get_css(), unsafe_allow_html=True)
 
 
 # ============ HELPER FUNCTIONS ============
 
 def get_fellow_type_badge(ft):
-    """Return (label, bg_color, text_color) for a fellow type string."""
+    """Return (label, css_class) for a fellow type string."""
     ft_lower = ft.lower() if ft else ""
     if "senior" in ft_lower:
-        return ("Senior CIF", "#6366f1", "#ffffff")
+        return ("Senior CIF", "tc-badge-indigo")
     elif "ai security" in ft_lower:
-        return ("AISF", "#0891b2", "#ffffff")
+        return ("AISF", "tc-badge-cyan")
     elif "congressional innovation scholar" in ft_lower:
-        return ("CIS", "#059669", "#ffffff")
+        return ("CIS", "tc-badge-emerald")
     elif "congressional digital service" in ft_lower:
-        return ("CDSF", "#d97706", "#ffffff")
+        return ("CDSF", "tc-badge-amber")
     else:
-        return ("CIF", "#93c5fd", "#1e40af")
+        return ("CIF", "tc-badge-blue")
 
 
 def get_sector_badge(sector):
-    """Return (bg_color, text_color) for a sector."""
-    sector_colors = {
-        "Government": ("#dbeafe", "#1d4ed8"),
-        "Nonprofit/Think Tank": ("#dcfce7", "#166534"),
-        "Academia": ("#f3e8ff", "#7c3aed"),
-        "Private": ("#ffedd5", "#9a3412"),
-        "Policy/Think Tank": ("#fce7f3", "#9d174d"),
+    """Return a CSS class name for a sector."""
+    sector_map = {
+        "Government":           "tc-badge-blue",
+        "Nonprofit/Think Tank": "tc-badge-green",
+        "Academia":             "tc-badge-purple",
+        "Private":              "tc-badge-orange",
+        "Policy/Think Tank":    "tc-badge-pink",
     }
-    return sector_colors.get(sector, ("#f1f5f9", "#475569"))
+    return sector_map.get(sector, "tc-badge-gray")
 
 
 def is_any_aisf(fellow_types):
@@ -608,7 +154,7 @@ def main():
         fig.update_layout(
             title=dict(
                 text=display_title,
-                font=dict(size=13, color="#1f2937", family="system-ui, -apple-system, sans-serif"),
+                font=dict(size=13, color="#6b7280", family="system-ui, -apple-system, sans-serif"),
                 x=0, xanchor="left", pad=dict(l=14, t=6),
             ),
             margin=dict(t=40, b=20, l=16, r=16),
@@ -616,11 +162,11 @@ def main():
             showlegend=True,
             legend=dict(
                 orientation="v",
-                font=dict(size=12, color="#374151"),
+                font=dict(size=12, color="#6b7280"),
                 x=0.58, y=0.5, xanchor="left",
             ),
-            paper_bgcolor="white",
-            plot_bgcolor="white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
         )
         if note:
             fig.add_annotation(
@@ -794,43 +340,43 @@ def show_alumni_card(alumni):
     # Build fellow type badges HTML
     type_badges_html = ""
     for ft in fellow_types:
-        label, bg, text = get_fellow_type_badge(ft)
-        type_badges_html += f'<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{bg};color:{text};margin-right:0.25rem;margin-bottom:0.25rem;">{label}</span>'
+        label, cls = get_fellow_type_badge(ft)
+        type_badges_html += f'<span class="tc-badge {cls}">{label}</span>'
 
     # Party badge
     party_html = ""
     if alumni.get("party"):
         if alumni["party"] == "Republican":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#ef4444;color:#ffffff;">R</span>'
+            party_html = '<span class="tc-badge" style="background:#ef4444;color:#fff;">R</span>'
         elif alumni["party"] == "Democrat":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#3b82f6;color:#ffffff;">D</span>'
+            party_html = '<span class="tc-badge" style="background:#3b82f6;color:#fff;">D</span>'
         elif alumni["party"] == "Independent":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#8b5cf6;color:#ffffff;">I</span>'
+            party_html = '<span class="tc-badge" style="background:#8b5cf6;color:#fff;">I</span>'
         elif alumni["party"] == "Institutional Office":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#64748b;color:#ffffff;">Institutional</span>'
+            party_html = '<span class="tc-badge" style="background:#64748b;color:#fff;">Institutional</span>'
     elif aisf:
-        party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#94a3b8;color:#ffffff;">Executive Branch</span>'
+        party_html = '<span class="tc-badge" style="background:#64748b;color:#fff;">Executive Branch</span>'
 
     # Sector badge
     sector_html = ""
     if alumni.get("sector"):
-        s_bg, s_text = get_sector_badge(alumni["sector"])
-        sector_html = f'<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{s_bg};color:{s_text};margin-top:0.25rem;">{alumni["sector"]}</span>'
+        s_cls = get_sector_badge(alumni["sector"])
+        sector_html = f'<span class="tc-badge {s_cls}">{alumni["sector"]}</span>'
 
     # Current role line
     role_html = ""
     if alumni.get("current_role"):
-        role_html = f'<div style="color:#374151;font-size:0.875rem;margin-bottom:0.25rem;font-weight:500;">{alumni["current_role"]}</div>'
+        role_html = f'<div style="color:var(--tc-text4);font-size:0.875rem;margin-bottom:0.25rem;font-weight:500;">{alumni["current_role"]}</div>'
 
     # Office served
     office_html = ""
     if alumni.get("office_served"):
-        office_html = f'<div style="color:#6b7280;font-size:0.8rem;margin-bottom:0.25rem;">Served: {alumni["office_served"]}</div>'
+        office_html = f'<div style="color:var(--tc-text2);font-size:0.8rem;margin-bottom:0.25rem;">Served: {alumni["office_served"]}</div>'
 
     # Location
     location_html = ""
     if alumni.get("location"):
-        location_html = f'<div style="color:#6b7280;font-size:0.8rem;">{alumni["location"]}</div>'
+        location_html = f'<div style="color:var(--tc-text2);font-size:0.8rem;">{alumni["location"]}</div>'
 
     # LinkedIn icon
     linkedin_html = ""
@@ -842,7 +388,7 @@ def show_alumni_card(alumni):
     if not alumni.get("contact", True):
         do_not_contact_html = '<div style="color:#dc2626;font-size:0.8rem;font-weight:600;margin-bottom:0.5rem;">⚠️ Do not contact</div>'
 
-    card_html = f'<div style="background-color:white;padding:1.25rem;border-radius:0.75rem;border:1px solid #e5e7eb;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:#1f2937;">{alumni["name"]}</div>{do_not_contact_html}<div style="color:#6b7280;font-size:0.875rem;margin-bottom:0.5rem;">Cohort: {alumni.get("cohort") or "N/A"}</div>{role_html}<div style="margin-bottom:0.5rem;">{type_badges_html}{party_html}</div>{office_html}<div style="margin-bottom:0.25rem;">{sector_html}</div>{location_html}{linkedin_html}</div>'
+    card_html = f'<div style="background:var(--tc-surface);padding:1.25rem;border-radius:0.75rem;border:1px solid var(--tc-border);margin-bottom:1rem;box-shadow:0 1px 3px var(--tc-shadow);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:var(--tc-text);">{alumni["name"]}</div>{do_not_contact_html}<div style="color:var(--tc-text2);font-size:0.875rem;margin-bottom:0.5rem;">Cohort: {alumni.get("cohort") or "N/A"}</div>{role_html}<div style="margin-bottom:0.5rem;">{type_badges_html}{party_html}</div>{office_html}<div style="margin-bottom:0.25rem;">{sector_html}</div>{location_html}{linkedin_html}</div>'
 
     st.markdown(card_html, unsafe_allow_html=True)
 
@@ -869,28 +415,28 @@ def show_alumni_modal(alumni):
     # Build fellow type badges
     type_badges_html = ""
     for ft in fellow_types:
-        label, bg, text = get_fellow_type_badge(ft)
-        type_badges_html += f'<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{bg};color:{text};margin-right:0.25rem;">{label}</span>'
+        label, cls = get_fellow_type_badge(ft)
+        type_badges_html += f'<span class="tc-badge {cls}">{label}</span>'
 
     # Party badge
     party_html = ""
     if alumni.get("party"):
         if alumni["party"] == "Republican":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#ef4444;color:#ffffff;">R</span>'
+            party_html = '<span class="tc-badge" style="background:#ef4444;color:#fff;">R</span>'
         elif alumni["party"] == "Democrat":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#3b82f6;color:#ffffff;">D</span>'
+            party_html = '<span class="tc-badge" style="background:#3b82f6;color:#fff;">D</span>'
         elif alumni["party"] == "Independent":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#8b5cf6;color:#ffffff;">I</span>'
+            party_html = '<span class="tc-badge" style="background:#8b5cf6;color:#fff;">I</span>'
         elif alumni["party"] == "Institutional Office":
-            party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#64748b;color:#ffffff;">Institutional</span>'
+            party_html = '<span class="tc-badge" style="background:#64748b;color:#fff;">Institutional</span>'
     elif aisf:
-        party_html = '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:#94a3b8;color:#ffffff;">Executive Branch</span>'
+        party_html = '<span class="tc-badge" style="background:#64748b;color:#fff;">Executive Branch</span>'
 
     # Sector badge
     sector_html = ""
     if alumni.get("sector"):
-        s_bg, s_text = get_sector_badge(alumni["sector"])
-        sector_html = f'<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{s_bg};color:{s_text};">{alumni["sector"]}</span>'
+        s_cls = get_sector_badge(alumni["sector"])
+        sector_html = f'<span class="tc-badge {s_cls}">{alumni["sector"]}</span>'
 
     # Modal header
     fellow_type_display = ", ".join(fellow_types) if fellow_types else "Alumni"
@@ -961,9 +507,9 @@ def show_alumni_modal(alumni):
                 st.caption("No current info on record.")
         with col2:
             if alumni.get("sector"):
-                s_bg, s_text = get_sector_badge(alumni["sector"])
+                s_cls = get_sector_badge(alumni["sector"])
                 st.markdown("**Sector**")
-                st.markdown(f'<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.75rem;font-weight:500;background-color:{s_bg};color:{s_text};">{alumni["sector"]}</span>', unsafe_allow_html=True)
+                st.markdown(f'<span class="tc-badge {s_cls}">{alumni["sector"]}</span>', unsafe_allow_html=True)
 
     with tab_engagement:
         if alumni.get("last_engaged"):
