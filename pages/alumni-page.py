@@ -388,7 +388,7 @@ def show_alumni_card(alumni):
     if not alumni.get("contact", True):
         do_not_contact_html = '<div style="color:#dc2626;font-size:0.8rem;font-weight:600;margin-bottom:0.5rem;">⚠️ Do not contact</div>'
 
-    card_html = f'<div style="background:var(--tc-surface);padding:1.25rem;border-radius:0.75rem;border:1px solid var(--tc-border);margin-bottom:1rem;box-shadow:0 1px 3px var(--tc-shadow);"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:var(--tc-text);">{alumni["name"]}</div>{do_not_contact_html}<div style="color:var(--tc-text2);font-size:0.875rem;margin-bottom:0.5rem;">Cohort: {alumni.get("cohort") or "N/A"}</div>{role_html}<div style="margin-bottom:0.5rem;">{type_badges_html}{party_html}</div>{office_html}<div style="margin-bottom:0.25rem;">{sector_html}</div>{location_html}{linkedin_html}</div>'
+    card_html = f'<div style="background:var(--tc-surface);padding:1.25rem;border-radius:0.75rem;border:1px solid var(--tc-border);margin-bottom:1rem;box-shadow:0 1px 3px var(--tc-shadow);display:flex;flex-direction:column;min-height:260px;"><div style="font-weight:600;font-size:1.1rem;margin-bottom:0.25rem;color:var(--tc-text);">{alumni["name"]}</div>{do_not_contact_html}<div style="color:var(--tc-text2);font-size:0.875rem;margin-bottom:0.5rem;">Cohort: {alumni.get("cohort") or "N/A"}</div>{role_html}<div style="margin-bottom:0.5rem;">{type_badges_html}{party_html}</div><div style="margin-top:auto;">{office_html}<div style="margin-bottom:0.25rem;">{sector_html}</div>{location_html}{linkedin_html}</div></div>'
 
     st.markdown(card_html, unsafe_allow_html=True)
 
