@@ -1,10 +1,6 @@
 # TechCongress Fellows Dashboard — Google Sheets Version
 
-A Streamlit-based dashboard for managing and monitoring TechCongress fellow placements and alumni, connected to **Google Sheets** as the backend database.
-
-> **Purpose:** This folder exists to compare building the same dashboard on Google Sheets
-> vs. Airtable (see `techcongress-dashboards/`). The UI and business logic are identical;
-> only the data layer (`helpers.py`) differs.
+A Streamlit-based dashboard for managing and monitoring TechCongress fellow placements, alumni, and events — connected to **Google Sheets** as the backend database.
 
 ---
 
@@ -19,6 +15,7 @@ A Streamlit-based dashboard for managing and monitoring TechCongress fellow plac
 - **Filtering & Sorting** — Filter by search term, status, fellow type, party, chamber, and cohort; sort by various criteria (default: Cohort, newest first)
 - **Fellow Types** — Supports Congressional Innovation Fellows (CIF), Senior Congressional Innovation Fellows, and AI Security Fellows (AISF)
 - **AI Security Fellow Handling** — AISF fellows display an "Executive Branch" tag instead of party affiliation and are excluded from check-in requirements
+- **Equal-height cards** — All fellow cards in a row are the same height regardless of how much data they contain; variable fields (office, term, last check-in) are anchored to the card bottom via flexbox
 
 ### Alumni Network
 
@@ -27,11 +24,25 @@ A Streamlit-based dashboard for managing and monitoring TechCongress fellow plac
 - **Sector Tracking** — Track alumni across Government, Nonprofit, Academia, Private, and Policy/Think Tank sectors
 - **Engagement Tracking** — Record last engaged date and engagement notes for each alum
 - **Filtering & Sorting** — Filter by search term, fellow type, sector, party, chamber, and cohort; sort by cohort, name, last engaged, organization, or sector
+- **Equal-height cards** — Same flexbox approach as fellow cards; footer fields (office served, sector, location, LinkedIn) anchor to the bottom
+
+### Events Planning
+
+- **Event Management** — Add, edit, and view events with name, date, type, venue, quarter, and required status
+- **Attendance Recording** — Mark fellow attendance for each past event via a dialog with checkboxes; saves in batch (see API notes below)
+- **Attendance Roster** — Expandable roster on each event card showing who attended vs. was absent
+- **Quarter Compliance Tracking** — Each tracked fellow must attend at least one required event per quarter; compliance is computed per fellow per quarter and displayed as met/not-met pills
+- **At-Risk Flagging** — Fellows who have missed all events in a quarter are flagged with a red border on their card
+- **Fellows Tab** — Per-fellow view showing quarterly compliance, at-risk status, type/party badges, and an expandable full event history
+- **Overview Tab** — Summary metrics: average attendance %, at-risk count, quarter compliance breakdown
+- **Cohort Scoping** — Attendance tracking only applies to Jan 2026 CIF/SCIF fellows and future cohorts; earlier cohorts are excluded
 
 ### General
 
-- **Multi-Page Navigation** — Toggle between Current Fellows and Alumni from the sidebar
-- **Secure Access** — Password-protected login with TechCongress branding and forced light mode styling
+- **Multi-Page Navigation** — Toggle between Current Fellows, Alumni, and Events from the sidebar
+- **Secure Access** — Password-protected login with TechCongress branding
+- **Dark Mode** — Full dark mode support via CSS custom properties; all badges, cards, charts, and avatars respond to `prefers-color-scheme: dark`
+- **Responsive Badges** — Reusable `tc-badge-*` CSS classes in `styles.py` replace inline hardcoded colors; both light and dark mode variants are defined centrally
 
 ---
 
@@ -41,28 +52,27 @@ A Streamlit-based dashboard for managing and monitoring TechCongress fellow plac
 
 - **Congressional Innovation Fellow (CIF)** — Standard fellows placed in congressional offices
 - **Senior Congressional Innovation Fellow (Senior CIF)** — Senior fellows with extended placements
-- **AI Security Fellow (AISF)** — Fellows placed in executive branch agencies; displayed with an "Executive Branch" tag instead of party affiliation and excluded from periodic check-in requirements
+- **AI Security Fellow (AISF)** — Fellows placed in executive branch agencies; displayed with an "Executive Branch" tag instead of party affiliation and excluded from check-in and attendance tracking
 
 ### Alumni-Only Designations
 
-- **Congressional Innovation Scholar (CIS)** — Historical designation for some earlier fellows
+- **Congressional Innovation Scholar (CIS)** — Historical designation
 - **Congressional Digital Service Fellow (CDSF)** — Digital service fellowship designation
 
 ---
 
 ## UI Overview
 
-- **Login Page** — Password-protected login with centered TechCongress logo and forced light mode
-- **Current Fellows Dashboard** — Card-based grid showing all fellows with status badges, check-in tracking, and monthly report management
-- **Alumni Dashboard** — Card-based grid showing alumni with sector tags, current role/organization, engagement tracking, and multi-select fellow type badges
-- **Modal Popups** — Click "View" on any card to open a tabbed detail view (Contact, Placement, Background, Status Reports, Check-ins for fellows; Contact, Fellowship History, Background, Current Info, Engagement, Accomplishments for alumni)
-- **Sidebar Navigation** — Toggle between Current Fellows and Alumni pages
+- **Login Page** — Password-protected with centered TechCongress logo
+- **Current Fellows Dashboard** — Card-based grid with status badges, check-in tracking, and monthly report management
+- **Alumni Dashboard** — Card-based grid with sector tags, current role/organization, engagement tracking, and multi-select fellow type badges
+- **Events Dashboard** — Three-tab layout: Overview (summary metrics), Events (filterable event list with attendance recording), Fellows (per-fellow compliance cards)
+- **Modal Popups** — Click "View" on any card to open a tabbed detail view
+- **Sidebar Navigation** — Toggle between all three pages
 
 ---
 
 ## Monthly Status Reports
-
-The dashboard includes a monthly status report tracking system for fellows who require regular check-ins.
 
 **Report Schedule:**
 - Jan 2025 extended fellows: Reports start Feb 2026, due on the last day of each month
@@ -84,18 +94,20 @@ The dashboard includes a monthly status report tracking system for fellows who r
 
 ### 1. Create the Google Spreadsheet
 
-Create a new Google Spreadsheet with four tabs named exactly:
+Create a new Google Spreadsheet with **six** tabs named exactly:
 
 - `Fellows`
 - `Check-ins`
 - `Status Reports`
 - `Alumni`
+- `Events`
+- `Event Attendance`
 
 Add the following header rows (row 1) to each tab:
 
 **Fellows:**
 ```
-ID | Name | Email | Phone Number | Cohort | Fellow Type | Party | Office | Chamber | LinkedIn | Start Date | End Date | Status | Last Check-in | Prior Role | Education | Notes | Requires Monthly Reports | Report Start Date | Report End Month
+ID | Name | Email | Phone Number | Cohort | Fellow Type | Party | Office | Chamber | Supervisor's Email | LinkedIn | Start Date | End Date | Status | Last Check-in | Prior Role | Education | Notes | Requires Monthly Reports | Report Start Date | Report End Month
 ```
 
 **Check-ins:**
@@ -112,6 +124,20 @@ ID | Fellow ID | Month | Submitted | Date Submitted | Notes
 ```
 ID | Name | Email | Phone Number | Cohort | Fellow Type | Party | Office Served | Chamber | Education | Prior Role | Current Role | Current Organization | Sector | Location | Contact? | LinkedIn | Last Engaged | Engagement Notes | Notes
 ```
+
+**Events:**
+```
+Event ID | Name | Date | Type | Venue | Quarter | Required? | Notes | Location | Status | Cohort
+```
+
+**Event Attendance:**
+```
+Record ID | Event ID | Fellow ID | Fellow Name | Attended? | Notes
+```
+
+> **Note:** Column A in every tab is the ID column. Records added through the app get a UUID auto-generated here. If you add rows directly in the spreadsheet, you must fill in the ID column yourself — any unique value works (a number, short string, or UUID). Duplicate or missing IDs will cause update/delete errors.
+>
+> Column A can be hidden in Google Sheets to keep things tidy — the app reads and writes by column position, so hidden columns work fine.
 
 ### 2. Create a Google Cloud Service Account
 
@@ -148,38 +174,94 @@ password = "your_password"
 
 > **Streamlit Cloud:** Paste these values directly into the app's Secrets settings (Settings → Secrets).
 
-### 4. Adding records directly in Google Sheets
-
-Records added through the app get a UUID auto-generated in column A. But if you ever add a row directly in the spreadsheet, **you must fill in the ID column yourself** — otherwise the app won't be able to update or delete that record, and duplicate key errors can occur.
-
-Any unique value works: a simple number (1, 2, 3...), a short string, or a generated UUID. The only requirement is that no two rows share the same ID within a tab.
-
-> **Tip:** Column A can be hidden in Google Sheets to keep the spreadsheet tidy — the app reads and writes to it by column position, so hidden columns work fine.
-
-### 5. Add the logo
-
-Place the `TechCongress Logo (black).png` file in the project root directory. This logo appears on both the login page and the dashboard header.
-
-### 6. Run locally
+### 4. Run locally
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
+### 5. Add the logo
+
+Place the `TechCongress Logo (black).png` file in the project root. It appears on both the login page and the dashboard header.
+
 ---
 
 ## Deployment
 
-This app is deployed on **Streamlit Community Cloud**. To deploy your own instance:
+Deployed on **Streamlit Community Cloud**.
 
-1. Push code to GitHub
-2. Connect your repo on Streamlit Cloud
-3. Add secrets in the Streamlit Cloud settings
+- `runtime.txt` pins the Python version to `3.11` to prevent Streamlit Cloud from auto-upgrading to newer Python versions (which caused a deployment failure when they defaulted to Python 3.13).
+- Push code to GitHub → Streamlit Cloud automatically redeploys. If the deployed app appears stale, pushing any file change (even `runtime.txt`) forces a clean redeployment.
 
 ---
 
-## Key differences from the Airtable version
+## Architecture Notes
+
+### CSS & Theming (`styles.py`)
+
+All CSS lives in `styles.py` and is injected via `st.markdown(get_css(), unsafe_allow_html=True)` at the top of each page. It uses CSS custom properties (variables) so a single `@media (prefers-color-scheme: dark)` block handles all dark mode overrides without touching Python code.
+
+Key variable groups:
+- `--tc-bg`, `--tc-surface`, `--tc-surface2` — background layers
+- `--tc-text`, `--tc-text2`, `--tc-text3`, `--tc-text4` — text hierarchy
+- `--tc-border`, `--tc-shadow` — card borders and shadows
+- `--tc-avatar-bg/text` — fellow initials avatars (Events page)
+- `--tc-present-bg/text`, `--tc-absent-bg/text` — attendance roster row colors
+
+**Badge classes** — instead of inline `background-color`/`color` on every badge, reusable `.tc-badge` + `.tc-badge-{color}` classes are defined once in `styles.py`:
+
+- Solid badges (white text, work in both modes without overrides): `tc-badge-indigo`, `tc-badge-cyan`, `tc-badge-emerald`, `tc-badge-amber`
+- Pastel badges (light mode pastels, dark mode gets saturated background + light text via `@media` override): `tc-badge-blue`, `tc-badge-green`, `tc-badge-orange`, `tc-badge-purple`, `tc-badge-yellow`, `tc-badge-pink`, `tc-badge-gray`, `tc-badge-red`
+- Attendance badges: `tc-badge-met` (green), `tc-badge-not-met` (red)
+
+### Equal-Height Cards
+
+Fellow and alumni cards use `display:flex; flex-direction:column; min-height:Npx` on the card container. Variable-length footer fields (office, term dates, last check-in for fellows; office served, sector, location, LinkedIn for alumni) are wrapped in a `<div style="margin-top:auto">` so they always anchor to the card bottom. Short cards pad with whitespace; tall cards can still grow past the minimum.
+
+### Google Sheets API — Batch Attendance Writing
+
+The attendance save used to call `save_event_attendance()` once per fellow in a loop. Each call performed a full `ws.get_all_records()` (a read request). With ~40 fellows this fired 40 reads in rapid succession, hitting the Google Sheets 60-reads/minute quota and throwing `APIError: [429]`.
+
+**Fix:** `save_event_attendance_batch()` in `helpers.py` reads the sheet **once**, builds an in-memory lookup of existing records, then writes all updates in a single `ws.batch_update()` call and all new rows in a single `ws.append_rows()` call — regardless of cohort size.
+
+### Streamlit Element Key Conflicts
+
+Streamlit requires unique keys for all interactive elements. The attendance button (`att_btn_{idx}_{event_id}`) and attendance checkbox (`att_chk_{event_id}_{fellow_id}`) previously used the same `att_` prefix, causing `StreamlitDuplicateElementKey` errors when numeric values aligned (e.g., `att_1_2` from both `idx=1, event_id=2` and `event_id=1, fellow_id=2`). Fixed by using distinct prefixes (`att_btn_` and `att_chk_`).
+
+### Plotly Charts (Dark Mode)
+
+Charts use `paper_bgcolor="rgba(0,0,0,0)"` and `plot_bgcolor="rgba(0,0,0,0)"` (transparent) so the CSS-controlled container background shows through. Text and legend colors are set to `#6b7280` (neutral gray) which is readable in both light and dark modes.
+
+---
+
+## File Structure
+
+```
+techcongress-fellows-dashboard/
+├── app.py                          # Login page + multi-page navigation
+├── helpers.py                      # Google Sheets config and all CRUD functions
+├── styles.py                       # Centralized CSS (variables, badge classes, dark mode)
+├── pages/
+│   ├── current-fellows-page.py     # Current fellows dashboard
+│   ├── alumni-page.py              # Alumni network dashboard
+│   └── events-page.py              # Events planning + attendance tracking
+├── runtime.txt                     # Pins Python to 3.11 for Streamlit Cloud
+├── requirements.txt                # Python dependencies
+├── TechCongress Logo (black).png   # Logo for login and header
+├── .github/
+│   └── workflows/
+│       └── keep-alive.yml
+├── .streamlit/
+│   ├── secrets.toml                # Your credentials (not in repo)
+│   └── secrets.toml.template       # Template to copy from
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Key Differences from the Airtable Version
 
 | | Airtable (`techcongress-dashboards/`) | Google Sheets (`techcongress-fellows-dashboard/`) |
 |---|---|---|
@@ -190,26 +272,3 @@ This app is deployed on **Streamlit Community Cloud**. To deploy your own instan
 | **Pagination** | 100-record limit, offset loop required | All rows in one call |
 | **Filtering** | Server-side formula filter | Client-side filter after full fetch |
 | **Dependencies** | `requests` | `gspread`, `google-auth` |
-
----
-
-## File structure
-
-```
-techcongress-fellows-dashboard/
-├── app.py                          # Login page + multi-page navigation
-├── helpers.py                      # Google Sheets config and CRUD functions
-├── pages/
-│   ├── current-fellows-page.py     # Current fellows dashboard
-│   └── alumni-page.py              # Alumni network dashboard
-├── requirements.txt                # Python dependencies (gspread, google-auth, streamlit)
-├── TechCongress Logo (black).png   # Logo displayed on login and dashboard
-├── .github/
-│   └── workflows/
-│       └── keep-alive.yml
-├── .streamlit/
-│   ├── secrets.toml                # Your credentials (not in repo)
-│   └── secrets.toml.template       # Template to copy from
-├── .gitignore
-└── README.md
-```
