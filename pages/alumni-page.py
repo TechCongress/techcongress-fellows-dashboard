@@ -181,16 +181,16 @@ def show_all_alumni_tab(alumni_list):
         fig.update_layout(
             title=dict(
                 text=display_title,
-                font=dict(size=13, color="#6b7280", family="system-ui, -apple-system, sans-serif"),
-                x=0, xanchor="left", pad=dict(l=14, t=6),
+                font=dict(size=12, color="#6b7280", family="system-ui, -apple-system, sans-serif"),
+                x=0, xanchor="left", pad=dict(l=10, t=4),
             ),
-            margin=dict(t=40, b=20, l=16, r=16),
-            height=260,
+            margin=dict(t=28, b=8, l=8, r=8),
+            height=200,
             showlegend=True,
             legend=dict(
                 orientation="v",
-                font=dict(size=12, color="#6b7280"),
-                x=0.58, y=0.5, xanchor="left",
+                font=dict(size=10, color="#6b7280"),
+                x=0.56, y=0.5, xanchor="left",
             ),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -199,9 +199,9 @@ def show_all_alumni_tab(alumni_list):
             fig.add_annotation(
                 text=note,
                 xref="paper", yref="paper",
-                x=0, y=-0.02,
+                x=0, y=-0.04,
                 showarrow=False,
-                font=dict(size=10, color="#9ca3af"),
+                font=dict(size=9, color="#9ca3af"),
                 xanchor="left",
             )
         return fig
