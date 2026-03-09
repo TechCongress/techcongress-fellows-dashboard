@@ -583,11 +583,11 @@ def show_fellow_modal(fellow):
 
                 if is_submitted:
                     report = submitted_months[month]
-                    st.markdown(f'<div style="background-color:#dcfce7;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #22c55e;"><span style="color:#166534;font-weight:600;">✅ {month}</span> — Submitted {report.get("date_submitted", "")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background:var(--tc-present-bg);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #22c55e;"><span style="color:var(--tc-present-text);font-weight:600;">✅ {month}</span><span style="color:var(--tc-text4);"> — Submitted {report.get("date_submitted", "")}</span></div>', unsafe_allow_html=True)
                 elif is_overdue:
-                    st.markdown(f'<div style="background-color:#fee2e2;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #ef4444;"><span style="color:#991b1b;font-weight:600;">❌ {month}</span> — OVERDUE (was due {last_day.strftime("%b %d")})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background:var(--tc-absent-bg);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #ef4444;"><span style="color:var(--tc-absent-text);font-weight:600;">❌ {month}</span><span style="color:var(--tc-text4);"> — OVERDUE (was due {last_day.strftime("%b %d")})</span></div>', unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div style="background:var(--tc-surface2);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #94a3b8;"><span style="color:#475569;font-weight:600;">⬜ {month}</span> — Due {last_day.strftime("%b %d")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background:var(--tc-surface2);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #94a3b8;"><span style="color:var(--tc-text4);font-weight:600;">⬜ {month}</span><span style="color:var(--tc-text2);"> — Due {last_day.strftime("%b %d")}</span></div>', unsafe_allow_html=True)
 
             # Mark as submitted form
             st.markdown("##### Mark Report as Submitted")
@@ -721,8 +721,8 @@ def show_fellow_modal(fellow):
                           if r["fellow_id"] == fellow["id"]}
             past_events = sorted(
                 [e for e in all_events
-                 if e["date"] and datetime.strptime(e["date"][:10], "%Y-%m-%d").date() < datetime.now().date()],
-                key=lambda e: e["date"],
+                 if _parse_date_value(e["date"]) and _parse_date_value(e["date"]) < datetime.now().date()],
+                key=lambda e: (_parse_date_value(e["date"]) or datetime.min.date()),
             )
 
             if not past_events:
