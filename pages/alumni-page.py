@@ -176,7 +176,7 @@ def show_all_alumni_tab(alumni_list):
             textfont=dict(size=12, color="#ffffff"),
             hovertemplate="%{label}: %{value} alumni<extra></extra>",
             hole=0,
-            domain=dict(x=[0, 0.55]),
+            domain=dict(x=[0, 0.52], y=[0.05, 0.95]),
         ))
         fig.update_layout(
             title=dict(
@@ -184,13 +184,13 @@ def show_all_alumni_tab(alumni_list):
                 font=dict(size=12, color="#6b7280", family="system-ui, -apple-system, sans-serif"),
                 x=0, xanchor="left", pad=dict(l=10, t=4),
             ),
-            margin=dict(t=28, b=8, l=8, r=8),
-            height=280,
+            margin=dict(t=32, b=32, l=8, r=8),
+            height=260,
             showlegend=True,
             legend=dict(
                 orientation="v",
                 font=dict(size=10, color="#6b7280"),
-                x=0.56, y=0.5, xanchor="left",
+                x=0.55, y=0.5, xanchor="left",
             ),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -199,7 +199,7 @@ def show_all_alumni_tab(alumni_list):
             fig.add_annotation(
                 text=note,
                 xref="paper", yref="paper",
-                x=0, y=-0.04,
+                x=0, y=-0.08,
                 showarrow=False,
                 font=dict(size=9, color="#9ca3af"),
                 xanchor="left",
