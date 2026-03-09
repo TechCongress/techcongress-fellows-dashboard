@@ -24,11 +24,21 @@ The dashboard is built with Streamlit and reads/writes data from Google Sheets, 
 
 ### Alumni Page
 
+- Two-tab layout: **All Alumni** (existing roster view) and **On the Hill** (new focused view)
 - Full alumni roster with filter/search controls
 - Alumni modal with tabbed layout mirroring the current fellows modal
 - Pie charts breaking down alumni by party affiliation, fellow type, and post-fellowship sector
 - Alumni party chart handles fellows with multiple affiliations (e.g. "Democrat, Institutional Office") by counting each affiliation separately
 - Equal-height cards: same flexbox approach as fellow cards; footer fields (office served, sector, location, LinkedIn) anchor to the bottom
+
+### On the Hill View
+
+- Dedicated tab on the Alumni page showing only alumni currently working in congressional roles
+- Alumni are marked via a **"Currently on the Hill"** checkbox in the edit form
+- Chamber (Senate vs. House) is **automatically inferred** from the `current_role` field using keyword matching: `"Sen."` or `"Senate"` → Senate; `"Rep."` or `"House"` → House. `"Sen."` is matched case-sensitively to avoid false matches on "Senior"
+- Alumni whose chamber cannot be inferred appear in an "Other / Chamber Unknown" section below the two columns, with a note prompting staff to add the right keyword to their current role
+- Stats bar at the top shows total on the Hill, Senate count, House count, and percentage of all alumni
+- Filterable by name/role search, party, and cohort
 
 ### Events Page
 
@@ -131,7 +141,32 @@ The dashboard connects to two separate Google Sheets:
 | F | Date Submitted |
 | G | Notes |
 
-**Alumni tab** — similar structure to Fellows with post-fellowship sector and `fellow_types` (plural, stored as comma-separated string) instead of `fellow_type`.
+**Alumni tab** — similar structure to Fellows with post-fellowship sector and `fellow_types` (plural, stored as comma-separated string) instead of `fellow_type`. Columns A–T:
+
+| Col | Field |
+|-----|-------|
+| A | ID |
+| B | Name |
+| C | Email |
+| D | Phone Number |
+| E | Cohort |
+| F | Fellow Type (comma-separated) |
+| G | Party |
+| H | Office Served |
+| I | Chamber |
+| J | Education |
+| K | Prior Role |
+| L | Current Role |
+| M | Currently on Hill (TRUE/FALSE) |
+| N | Sector |
+| O | Location |
+| P | Contact? (TRUE/FALSE) |
+| Q | LinkedIn |
+| R | Last Engaged |
+| S | Engagement Notes |
+| T | Notes |
+
+> **Note:** Column M ("Currently on Hill") was added after the original build. If you have existing alumni rows in the spreadsheet, insert a new column M between Current Role and Sector and add the header "Currently on Hill". Leave existing rows blank (treated as FALSE) or set to TRUE where applicable. The update range in `update_alumni()` was expanded from `A:S` to `A:T` to accommodate this.
 
 **Events tab** — one row per event:
 

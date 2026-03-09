@@ -77,6 +77,22 @@ def is_any_aisf(fellow_types):
     return False
 
 
+def _infer_hill_chamber(current_role: str) -> str:
+    """
+    Infer Senate or House from keywords in current_role.
+    "Sen." is matched case-sensitively to avoid hitting "Senior".
+    "Senate", "Rep.", and "House" use standard substring matching.
+    Returns "Senate", "House", or "Other".
+    """
+    if not current_role:
+        return "Other"
+    if "Sen." in current_role or "Senate" in current_role:
+        return "Senate"
+    if "Rep." in current_role or "House" in current_role:
+        return "House"
+    return "Other"
+
+
 # ============ MAIN APP ============
 
 def main():
@@ -116,6 +132,17 @@ def main():
             show_alumni_form()
         return
 
+    tab_all, tab_hill = st.tabs(["All Alumni", "🏛 On the Hill"])
+
+    with tab_all:
+        show_all_alumni_tab(alumni_list)
+
+    with tab_hill:
+        show_on_the_hill_tab(alumni_list)
+
+
+def show_all_alumni_tab(alumni_list):
+    """Render the main alumni list with stats, charts, filters, and cards."""
     # Calculate stats
     total = len(alumni_list)
     govt = len([a for a in alumni_list if a.get("sector") == "Government"])
@@ -330,6 +357,89 @@ def main():
     for idx, alumni in enumerate(filtered):
         with cols[idx % 3]:
             show_alumni_card(alumni)
+
+
+def show_on_the_hill_tab(alumni_list):
+    """Render the On the Hill view — alumni currently in congressional roles."""
+    on_hill = [a for a in alumni_list if a.get("currently_on_hill")]
+
+    if not on_hill:
+        st.info("No alumni are currently marked as working on the Hill. Use the Edit form to mark an alum as 'Currently on the Hill'.")
+        return
+
+    # Bucket by chamber
+    senate = [a for a in on_hill if _infer_hill_chamber(a.get("current_role", "")) == "Senate"]
+    house  = [a for a in on_hill if _infer_hill_chamber(a.get("current_role", "")) == "House"]
+    other  = [a for a in on_hill if _infer_hill_chamber(a.get("current_role", "")) == "Other"]
+
+    total_alumni = len(alumni_list)
+
+    # Stats row
+    st.markdown("---")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Total on the Hill", len(on_hill))
+    with c2:
+        st.metric("Senate", len(senate))
+    with c3:
+        st.metric("House", len(house))
+    with c4:
+        pct = round(len(on_hill) / total_alumni * 100) if total_alumni else 0
+        st.metric("% of All Alumni", f"{pct}%")
+
+    st.markdown("---")
+
+    # Search / filter bar
+    col_search, col_party, col_cohort = st.columns([3, 2, 2])
+    with col_search:
+        hill_search = st.text_input("Search", placeholder="Name or role…", key="hill_search", label_visibility="collapsed")
+    with col_party:
+        hill_party = st.selectbox("Party", ["All Parties", "Democrat", "Republican", "Independent", "Institutional Office"], key="hill_party")
+    with col_cohort:
+        cohorts = sorted(set(a["cohort"] for a in on_hill if a.get("cohort")), key=_cohort_sort_key, reverse=True)
+        hill_cohort = st.selectbox("Cohort", ["All Cohorts"] + cohorts, key="hill_cohort")
+
+    def _apply_hill_filters(group):
+        if hill_search:
+            sl = hill_search.lower()
+            group = [a for a in group if sl in a["name"].lower() or sl in (a.get("current_role") or "").lower()]
+        if hill_party != "All Parties":
+            group = [a for a in group if a.get("party") == hill_party]
+        if hill_cohort != "All Cohorts":
+            group = [a for a in group if a.get("cohort") == hill_cohort]
+        return group
+
+    senate = _apply_hill_filters(senate)
+    house  = _apply_hill_filters(house)
+    other  = _apply_hill_filters(other)
+
+    # Two-column layout: Senate | House
+    col_senate, col_house = st.columns(2)
+
+    with col_senate:
+        st.markdown(f"#### 🏛 Senate &nbsp;<span style='font-size:0.8rem;color:#64748b;font-weight:400;'>({len(senate)})</span>", unsafe_allow_html=True)
+        if senate:
+            for a in senate:
+                show_alumni_card(a)
+        else:
+            st.caption("No Senate alumni match your filters.")
+
+    with col_house:
+        st.markdown(f"#### 🏛 House &nbsp;<span style='font-size:0.8rem;color:#64748b;font-weight:400;'>({len(house)})</span>", unsafe_allow_html=True)
+        if house:
+            for a in house:
+                show_alumni_card(a)
+        else:
+            st.caption("No House alumni match your filters.")
+
+    # Other / unrecognised roles below the two columns
+    if other:
+        st.markdown(f"#### Other / Chamber Unknown &nbsp;<span style='font-size:0.8rem;color:#64748b;font-weight:400;'>({len(other)})</span>", unsafe_allow_html=True)
+        st.caption("Chamber could not be inferred from current role. Add 'Sen.', 'Senate', 'Rep.', or 'House' to the current role field to auto-sort.")
+        cols = st.columns(3)
+        for idx, a in enumerate(other):
+            with cols[idx % 3]:
+                show_alumni_card(a)
 
 
 def show_alumni_card(alumni):
@@ -591,6 +701,12 @@ def show_alumni_form():
         with col2:
             current_role = st.text_input("Current Role", value=alumni.get("current_role", ""), placeholder="e.g., Policy Analyst @ OSTP")
 
+        currently_on_hill = st.checkbox(
+            "Currently on the Hill",
+            value=alumni.get("currently_on_hill", False),
+            help="Check if this alum is currently working in a congressional office or committee. Chamber (Senate/House) is inferred automatically from the Current Role field using keywords: 'Sen.', 'Senate', 'Rep.', 'House'."
+        )
+
         prior_role = st.text_input("Prior Role", value=alumni.get("prior_role", ""), placeholder="Role before becoming a fellow")
         education = st.text_input("Education", value=alumni.get("education", ""), placeholder="e.g., PhD Computer Science, Stanford")
 
@@ -643,6 +759,7 @@ def show_alumni_form():
                     "chamber": chamber,
                     "party": party,
                     "current_role": current_role,
+                    "currently_on_hill": currently_on_hill,
                     "sector": sector,
                     "location": location,
                     "linkedin": linkedin,

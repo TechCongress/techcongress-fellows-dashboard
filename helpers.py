@@ -440,6 +440,7 @@ def fetch_alumni() -> list[dict]:
             "notes":            str(row.get("Notes", "")),
             "prior_role":       str(row.get("Prior Role", "")),
             "education":        str(row.get("Education", "")),
+            "currently_on_hill": _to_bool(row.get("Currently on Hill", False)),
         })
     return alumni
 
@@ -466,6 +467,7 @@ def _alumni_row_values(alumni_id: str, data: dict) -> list:
         data.get("education", ""),
         data.get("prior_role", ""),
         data.get("current_role", ""),
+        "TRUE" if data.get("currently_on_hill", False) else "FALSE",
         data.get("sector", ""),
         data.get("location", ""),
         "TRUE" if data.get("contact", True) else "FALSE",
@@ -505,7 +507,7 @@ def update_alumni(record_id: str, alumni_data: dict) -> bool:
         if not cell:
             st.error(f"Alumni {record_id} not found.")
             return False
-        ws.update(f"A{cell.row}:S{cell.row}", [_alumni_row_values(record_id, alumni_data)], value_input_option="USER_ENTERED")
+        ws.update(f"A{cell.row}:T{cell.row}", [_alumni_row_values(record_id, alumni_data)], value_input_option="USER_ENTERED")
         return True
     except Exception as e:
         st.error(f"Failed to update alumni record: {e}")
