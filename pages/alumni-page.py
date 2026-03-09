@@ -420,7 +420,7 @@ def show_on_the_hill_tab(alumni_list):
         st.markdown(f"#### 🏛 Senate &nbsp;<span style='font-size:0.8rem;color:#64748b;font-weight:400;'>({len(senate)})</span>", unsafe_allow_html=True)
         if senate:
             for a in senate:
-                show_alumni_card(a)
+                show_alumni_card(a, key_prefix="hill_")
         else:
             st.caption("No Senate alumni match your filters.")
 
@@ -428,7 +428,7 @@ def show_on_the_hill_tab(alumni_list):
         st.markdown(f"#### 🏛 House &nbsp;<span style='font-size:0.8rem;color:#64748b;font-weight:400;'>({len(house)})</span>", unsafe_allow_html=True)
         if house:
             for a in house:
-                show_alumni_card(a)
+                show_alumni_card(a, key_prefix="hill_")
         else:
             st.caption("No House alumni match your filters.")
 
@@ -439,10 +439,10 @@ def show_on_the_hill_tab(alumni_list):
         cols = st.columns(3)
         for idx, a in enumerate(other):
             with cols[idx % 3]:
-                show_alumni_card(a)
+                show_alumni_card(a, key_prefix="hill_")
 
 
-def show_alumni_card(alumni):
+def show_alumni_card(alumni, key_prefix=""):
     """Display an alumni card."""
     fellow_types = alumni.get("fellow_types") or []
     aisf = is_any_aisf(fellow_types)
@@ -505,12 +505,12 @@ def show_alumni_card(alumni):
     # Action buttons
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("View", key=f"alumni_view_{alumni['id']}", use_container_width=True):
+        if st.button("View", key=f"{key_prefix}alumni_view_{alumni['id']}", use_container_width=True):
             st.session_state.alumni_modal_id = alumni["id"]
             st.session_state.alumni_trigger_modal = True
             st.rerun()
     with col2:
-        if st.button("Edit", key=f"alumni_edit_{alumni['id']}", use_container_width=True):
+        if st.button("Edit", key=f"{key_prefix}alumni_edit_{alumni['id']}", use_container_width=True):
             st.session_state.alumni_editing = alumni
             st.session_state.alumni_show_add_form = False
             st.rerun()
