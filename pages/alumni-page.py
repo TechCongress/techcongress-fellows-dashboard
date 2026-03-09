@@ -185,7 +185,7 @@ def show_all_alumni_tab(alumni_list):
                 x=0, xanchor="left", pad=dict(l=10, t=4),
             ),
             margin=dict(t=28, b=8, l=8, r=8),
-            height=200,
+            height=280,
             showlegend=True,
             legend=dict(
                 orientation="v",
