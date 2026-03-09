@@ -440,7 +440,7 @@ def fetch_alumni() -> list[dict]:
             "notes":            str(row.get("Notes", "")),
             "prior_role":       str(row.get("Prior Role", "")),
             "education":        str(row.get("Education", "")),
-            "currently_on_hill": _to_bool(row.get("Currently on Hill", False)),
+            "currently_on_hill": _to_bool(row.get("Currently on the Hill?", False)),
         })
     return alumni
 
