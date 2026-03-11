@@ -147,8 +147,8 @@ def show_all_alumni_tab(alumni_list):
     total = len(alumni_list)
     govt = len([a for a in alumni_list if a.get("sector") == "Government"])
     private = len([a for a in alumni_list if a.get("sector") == "Private"])
-    nonprofit_academia = len([a for a in alumni_list if a.get("sector") in ["Nonprofit/Think Tank", "Academia"]])
-    policy = len([a for a in alumni_list if a.get("sector") == "Policy/Think Tank"])
+    nonprofit = len([a for a in alumni_list if a.get("sector") == "Nonprofit/Think Tank"])
+    academia = len([a for a in alumni_list if a.get("sector") == "Academia"])
 
     # Stats row
     st.markdown("---")
@@ -161,9 +161,9 @@ def show_all_alumni_tab(alumni_list):
     with col3:
         st.metric("Private Sector", private)
     with col4:
-        st.metric("Nonprofit & Academia", nonprofit_academia)
+        st.metric("Nonprofit/Think Tank", nonprofit)
     with col5:
-        st.metric("Policy / Think Tank", policy)
+        st.metric("Academia", academia)
 
     # ── Alumni Breakdown Charts ──────────────────────────────────────────────
     def make_pie(title, labels, values, colors, note=None):

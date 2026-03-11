@@ -201,7 +201,7 @@ Place the `TechCongress Logo (black).png` file in the project root. It appears o
 
 Deployed on **Streamlit Community Cloud**.
 
-- `runtime.txt` pins the Python version to `3.11` to prevent Streamlit Cloud from auto-upgrading to newer Python versions (which caused a deployment failure when they defaulted to Python 3.13).
+- `runtime.txt` pins the Python version to `3.13`.
 - Push code to GitHub → Streamlit Cloud automatically redeploys. If the deployed app appears stale, pushing any file change (even `runtime.txt`) forces a clean redeployment.
 
 ---
@@ -257,7 +257,7 @@ techcongress-fellows-dashboard/
 │   ├── current-fellows-page.py     # Current fellows dashboard
 │   ├── alumni-page.py              # Alumni network dashboard
 │   └── events-page.py              # Events planning + attendance tracking
-├── runtime.txt                     # Pins Python to 3.11 for Streamlit Cloud
+├── runtime.txt                     # Pins Python to 3.13 for Streamlit Cloud
 ├── requirements.txt                # Python dependencies
 ├── TechCongress Logo (black).png   # Logo for login and header
 ├── .github/
