@@ -11,7 +11,7 @@ A Streamlit-based dashboard for managing and monitoring TechCongress fellow plac
 - **Fellow Management** — Add, edit, and view fellow profiles with a modal popup interface
 - **Status Tracking** — Monitor Active, Flagged, and Ending Soon fellows
 - **Check-in History** — Log and track all fellow check-ins over time
-- **Monthly Status Reports** — Track monthly report submissions with streak tracking and incentives
+- **Monthly Status Reports** — Track monthly report submissions with streak tracking and incentives; automatically synced from Google Form responses on the 1st of each month
 - **Filtering & Sorting** — Filter by search term, status, fellow type, party, chamber, and cohort; sort by various criteria (default: Cohort, newest first)
 - **Fellow Types** — Supports Congressional Innovation Fellows (CIF), Senior Congressional Innovation Fellows, and AI Security Fellows (AISF)
 - **AI Security Fellow Handling** — AISF fellows display an "Executive Branch" tag instead of party affiliation and are excluded from check-in requirements
@@ -87,6 +87,16 @@ A Streamlit-based dashboard for managing and monitoring TechCongress fellow plac
 - 🎁 Gift Card — 3 reports in a row earns a $50 gift card
 - ⚠️ At Risk — 1 missed report triggers a warning
 - 🚫 Reimbursements Paused — 2+ missed reports pauses reimbursements
+
+**Automated Sync:**
+
+`sync_status_reports.py` runs on the 1st of each month via a scheduled task. It reads the previous month's Google Form responses ("Form Responses 1" tab) and automatically marks each fellow's status report as submitted in the Status Reports sheet. Matching is done by email first, with full name as a fallback. On-time is defined as submitted by 11:59 PM EST on the last day of the month. Late submissions are marked with a note. Duplicate submissions (same fellow, same month) are flagged for manual review. Unmatched submissions (no email or name match in the database) are printed in the summary output for manual entry.
+
+To run manually for any month:
+```bash
+python sync_status_reports.py           # syncs previous month
+python sync_status_reports.py 2026 3    # syncs a specific month
+```
 
 ---
 
@@ -242,6 +252,7 @@ techcongress-fellows-dashboard/
 ├── app.py                          # Login page + multi-page navigation
 ├── helpers.py                      # Google Sheets config and all CRUD functions
 ├── styles.py                       # Centralized CSS (variables, badge classes, dark mode)
+├── sync_status_reports.py          # Standalone monthly status report sync script
 ├── pages/
 │   ├── current-fellows-page.py     # Current fellows dashboard
 │   ├── alumni-page.py              # Alumni network dashboard
