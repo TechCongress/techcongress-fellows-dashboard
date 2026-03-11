@@ -63,6 +63,7 @@ REPORTS_SHEET          = "Status Reports"
 ALUMNI_SHEET           = "Alumni"
 EVENTS_SHEET           = "Events"
 EVENT_ATTENDANCE_SHEET = "Event Attendance"
+FORM_RESPONSES_SHEET   = "Form Responses 1"
 
 EVENT_TYPES = [
     "Happy Hour", "Site Visit", "Social", "Career Development",
@@ -848,6 +849,174 @@ def save_event_attendance_batch(event_id: str, attendance_map: dict) -> bool:
     except Exception as e:
         st.error(f"Failed to save attendance: {e}")
         return False
+
+
+# ============ STATUS REPORT SYNC FROM FORM ============
+
+def sync_status_reports_from_form(year: int, month: int) -> dict:
+    """
+    Read Google Form responses for the given year/month, match each submission
+    to a fellow in the database, and create or update a Status Report record.
+
+    Matching order:
+      1. Email (primary) — case-insensitive match against fellows["email"]
+      2. Full name fallback — "First Name" + "Last Name" from form matched against fellows["name"]
+
+    On-time rule: submitted by 11:59:59 PM EST on the last calendar day of the month.
+    Duplicates (same email, same month): flag them and use the earliest submission.
+
+    Returns a dict with four keys:
+      synced             — list of {fellow_name, month, on_time, date_submitted}
+      flagged_duplicates — list of {email, name, count}
+      unmatched          — list of {email, first_name, last_name}
+      errors             — list of error strings (non-fatal issues are logged here, not raised)
+    """
+    import calendar
+    from collections import defaultdict
+
+    try:
+        import pytz
+        EST = pytz.timezone("America/New_York")
+        def _localize(dt):
+            return EST.localize(dt)
+        def _to_est(dt):
+            return dt.astimezone(EST)
+    except ImportError:
+        from datetime import timezone, timedelta
+        EST = timezone(timedelta(hours=-5))  # fallback: fixed UTC-5 (no DST)
+        def _localize(dt):
+            return dt.replace(tzinfo=EST)
+        def _to_est(dt):
+            return dt.astimezone(EST)
+
+    result = {"synced": [], "flagged_duplicates": [], "unmatched": [], "errors": []}
+
+    # Deadline: last day of the target month at 23:59:59 EST
+    last_day = calendar.monthrange(year, month)[1]
+    deadline = _localize(datetime(year, month, last_day, 23, 59, 59))
+    month_label = datetime(year, month, 1).strftime("%b %Y")
+
+    # ── 1. Read form responses ────────────────────────────────────────────────
+    try:
+        ws = _worksheet(FORM_RESPONSES_SHEET)
+        rows = ws.get_all_records()
+    except Exception as e:
+        result["errors"].append(f"Failed to read form responses: {e}")
+        return result
+
+    # ── 2. Parse timestamps, filter to target month ───────────────────────────
+    def _parse_form_ts(ts_str: str):
+        """Parse a Google Forms timestamp string into a timezone-aware datetime."""
+        for fmt in ("%m/%d/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%-m/%-d/%Y %H:%M:%S"):
+            try:
+                return _localize(datetime.strptime(ts_str.strip(), fmt))
+            except ValueError:
+                continue
+        return None
+
+    month_responses = []
+    for row in rows:
+        ts = _parse_form_ts(str(row.get("Timestamp", "")))
+        if ts and ts.year == year and ts.month == month:
+            month_responses.append({
+                "email":      str(row.get("Email Address", "")).strip().lower(),
+                "first_name": str(row.get("First Name", "")).strip(),
+                "last_name":  str(row.get("Last Name", "")).strip(),
+                "timestamp":  ts,
+                "on_time":    ts <= deadline,
+            })
+
+    if not month_responses:
+        result["errors"].append(f"No form responses found for {month_label}.")
+        return result
+
+    # ── 3. Detect duplicates; keep earliest submission per email ──────────────
+    by_email = defaultdict(list)
+    for r in month_responses:
+        by_email[r["email"]].append(r)
+
+    for email, responses in by_email.items():
+        if len(responses) > 1:
+            r = responses[0]
+            result["flagged_duplicates"].append({
+                "email": email,
+                "name":  f"{r['first_name']} {r['last_name']}",
+                "count": len(responses),
+            })
+
+    deduped = {
+        email: sorted(rs, key=lambda r: r["timestamp"])[0]
+        for email, rs in by_email.items()
+    }
+
+    # ── 4. Build fellow lookup indexes ────────────────────────────────────────
+    try:
+        fellows = fetch_fellows()
+    except Exception as e:
+        result["errors"].append(f"Failed to fetch fellows: {e}")
+        return result
+
+    email_to_fellow = {f["email"].strip().lower(): f for f in fellows if f.get("email")}
+    name_to_fellow  = {f["name"].strip().lower(): f  for f in fellows if f.get("name")}
+
+    # ── 5. Load existing Status Report records for this month ─────────────────
+    try:
+        all_reports = _worksheet(REPORTS_SHEET).get_all_records()
+    except Exception as e:
+        result["errors"].append(f"Failed to fetch status reports: {e}")
+        return result
+
+    # (fellow_id, month_label) → existing report ID
+    existing_reports = {
+        (str(r.get("Fellow ID", "")), str(r.get("Month", ""))): str(r.get("ID", ""))
+        for r in all_reports
+    }
+
+    # ── 6. Match each submission and upsert a Status Report record ────────────
+    for email, response in deduped.items():
+        # Primary match: email
+        fellow = email_to_fellow.get(email)
+
+        # Fallback match: full name (case-insensitive)
+        if not fellow:
+            full_name = f"{response['first_name']} {response['last_name']}".strip().lower()
+            fellow = name_to_fellow.get(full_name)
+
+        if not fellow:
+            result["unmatched"].append({
+                "email":      response["email"],
+                "first_name": response["first_name"],
+                "last_name":  response["last_name"],
+            })
+            continue
+
+        fellow_id      = fellow["id"]
+        fellow_name    = fellow["name"]
+        date_submitted = _to_est(response["timestamp"]).strftime("%Y-%m-%d")
+        on_time        = response["on_time"]
+        notes          = "" if on_time else "⚠️ Submitted after month-end deadline (11:59 PM EST)"
+
+        key = (fellow_id, month_label)
+        if key in existing_reports:
+            update_status_report(existing_reports[key], submitted=True, date_submitted=date_submitted)
+        else:
+            add_status_report({
+                "fellow_id":      fellow_id,
+                "fellow_name":    fellow_name,
+                "month":          month_label,
+                "submitted":      True,
+                "date_submitted": date_submitted,
+                "notes":          notes,
+            })
+
+        result["synced"].append({
+            "fellow_name":    fellow_name,
+            "month":          month_label,
+            "on_time":        on_time,
+            "date_submitted": date_submitted,
+        })
+
+    return result
 
 
 def get_quarter_compliance(fellows: list, events: list, attendance: list) -> dict:
