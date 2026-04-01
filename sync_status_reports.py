@@ -60,6 +60,16 @@ creds = Credentials.from_service_account_info(
 client      = gspread.authorize(creds)
 spreadsheet = client.open_by_key(secrets["gsheets"]["spreadsheet_id"])
 
+# The form responses live in a separate spreadsheet (linked from the Google Form).
+# Extract the spreadsheet ID from the form_responses_url in secrets.
+_form_url = secrets["gsheets"].get("form_responses_url", "")
+if "/spreadsheets/d/" in _form_url:
+    _form_id = _form_url.split("/spreadsheets/d/")[1].split("/")[0]
+    form_spreadsheet = client.open_by_key(_form_id)
+else:
+    # Fall back to the main spreadsheet if no separate URL is configured
+    form_spreadsheet = spreadsheet
+
 FELLOWS_SHEET        = "Fellows"
 REPORTS_SHEET        = "Status Reports"
 FORM_RESPONSES_SHEET = "Form Responses 1"
@@ -67,6 +77,10 @@ FORM_RESPONSES_SHEET = "Form Responses 1"
 
 def _ws(name: str) -> gspread.Worksheet:
     return spreadsheet.worksheet(name)
+
+
+def _form_ws(name: str) -> gspread.Worksheet:
+    return form_spreadsheet.worksheet(name)
 
 
 def _new_id() -> str:
@@ -121,9 +135,9 @@ def sync(year: int, month: int) -> dict:
     print(f"\nSyncing status reports for {month_label}")
     print(f"Deadline: {deadline.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
-    # 1. Read form responses
+    # 1. Read form responses (from the separate form responses spreadsheet)
     try:
-        rows = _ws(FORM_RESPONSES_SHEET).get_all_records()
+        rows = _form_ws(FORM_RESPONSES_SHEET).get_all_records()
     except Exception as e:
         result["errors"].append(f"Failed to read form responses: {e}")
         return result
@@ -155,23 +169,26 @@ def sync(year: int, month: int) -> dict:
         result["errors"].append(f"No form responses found for {month_label}.")
         return result
 
-    # 3. Detect duplicates; keep earliest submission per email
+    # 3. Detect duplicates; keep earliest submission per email.
+    # Responses with no email are given a unique key so they don't get
+    # incorrectly grouped together as duplicates of each other.
     by_email = defaultdict(list)
-    for r in month_responses:
-        by_email[r["email"]].append(r)
+    for i, r in enumerate(month_responses):
+        key = r["email"] if r["email"] else f"__nomail_{i}__"
+        by_email[key].append(r)
 
-    for email, responses in by_email.items():
-        if len(responses) > 1:
+    for key, responses in by_email.items():
+        if len(responses) > 1 and not key.startswith("__nomail_"):
             r = responses[0]
             result["flagged_duplicates"].append({
-                "email": email,
+                "email": key,
                 "name":  f"{r['first_name']} {r['last_name']}",
                 "count": len(responses),
             })
 
     deduped = {
-        email: sorted(rs, key=lambda r: r["timestamp"])[0]
-        for email, rs in by_email.items()
+        key: sorted(rs, key=lambda r: r["timestamp"])[0]
+        for key, rs in by_email.items()
     }
 
     # 4. Build fellow lookup indexes
@@ -208,9 +225,10 @@ def sync(year: int, month: int) -> dict:
     # 6. Match each submission and upsert a Status Report record
     ws_reports = _ws(REPORTS_SHEET)
 
-    for email, response in deduped.items():
-        # Primary: email match
-        fellow = email_to_fellow.get(email)
+    for key, response in deduped.items():
+        # Primary: email match (skip if this is a no-email placeholder key)
+        email = response["email"]
+        fellow = email_to_fellow.get(email) if email else None
 
         # Fallback: full name match
         if not fellow:
