@@ -132,6 +132,7 @@ def fetch_fellows() -> list[dict]:
             "id":                      str(row.get("ID", "")),
             "name":                    str(row.get("Name", "")),
             "email":                   str(row.get("Email", "")),
+            "congressional_email":     str(row.get("Congressional Email", "")),
             "phone":                   str(row.get("Phone Number", "")),
             "fellow_type":             str(row.get("Fellow Type", "")),
             "party":                   str(row.get("Party", "")),
@@ -160,27 +161,28 @@ def _fellow_row_values(fellow_id: str, data: dict) -> list:
     Column order must match the Fellows sheet header row exactly.
     """
     return [
-        fellow_id,
-        data.get("name", ""),
-        data.get("email", ""),
-        data.get("phone", ""),
-        data.get("cohort", ""),
-        data.get("fellow_type", ""),
-        data.get("party", ""),
-        data.get("office", ""),           # H
-        data.get("chamber", ""),           # I
-        data.get("supervisor_email", ""),  # J
-        data.get("linkedin", ""),          # K
-        data.get("start_date", ""),        # L
-        data.get("end_date", ""),          # M
-        data.get("status", "Active"),      # N
-        data.get("last_check_in", ""),     # O
-        data.get("prior_role", ""),        # P
-        data.get("education", ""),         # Q
-        data.get("notes", ""),             # R
-        "TRUE" if data.get("requires_monthly_reports") else "FALSE",  # S
-        data.get("report_start_date", ""),  # T
-        data.get("report_end_month", ""),   # U
+        fellow_id,                                                       # A
+        data.get("name", ""),                                            # B
+        data.get("email", ""),                                           # C
+        data.get("congressional_email", ""),                             # D
+        data.get("phone", ""),                                           # E
+        data.get("cohort", ""),                                          # F
+        data.get("fellow_type", ""),                                     # G
+        data.get("party", ""),                                           # H
+        data.get("office", ""),                                          # I
+        data.get("chamber", ""),                                         # J
+        data.get("supervisor_email", ""),                                # K
+        data.get("linkedin", ""),                                        # L
+        data.get("start_date", ""),                                      # M
+        data.get("end_date", ""),                                        # N
+        data.get("status", "Active"),                                    # O
+        data.get("last_check_in", ""),                                   # P
+        data.get("prior_role", ""),                                      # Q
+        data.get("education", ""),                                       # R
+        data.get("notes", ""),                                           # S
+        "TRUE" if data.get("requires_monthly_reports") else "FALSE",    # T
+        data.get("report_start_date", ""),                               # U
+        data.get("report_end_month", ""),                                # V
     ]
 
 
@@ -219,7 +221,7 @@ def update_fellow(record_id: str, fellow_data: dict) -> bool:
             return False
         row_num = cell.row
         # Build the range string, e.g. "A5:T5" for 20 columns
-        ws.update(f"A{row_num}:U{row_num}", [_fellow_row_values(record_id, fellow_data)], value_input_option="USER_ENTERED")
+        ws.update(f"A{row_num}:V{row_num}", [_fellow_row_values(record_id, fellow_data)], value_input_option="USER_ENTERED")
         return True
     except Exception as e:
         st.error(f"Failed to update fellow: {e}")
@@ -238,8 +240,8 @@ def update_fellow_checkin(record_id: str, checkin_date: str) -> bool:
         cell = ws.find(record_id, in_column=1)
         if not cell:
             return False
-        # "Last Check-in" is the 15th column (O) after Supervisor's Email was added at J
-        ws.update_cell(cell.row, 15, checkin_date)
+        # "Last Check-in" is column P (16) after Congressional Email was added at D
+        ws.update_cell(cell.row, 16, checkin_date)
         return True
     except Exception as e:
         st.error(f"Failed to update Last Check-in: {e}")

@@ -780,6 +780,7 @@ def show_fellow_form():
         with col1:
             name = st.text_input("Name *", value=fellow.get("name", ""))
             email = st.text_input("Email", value=fellow.get("email", ""))
+            congressional_email = st.text_input("Congressional Email", value=fellow.get("congressional_email", ""), placeholder="e.g., firstname.lastname@mail.house.gov")
             phone = st.text_input("Phone", value=fellow.get("phone", ""))
             linkedin = st.text_input("LinkedIn URL", value=fellow.get("linkedin", ""))
 
@@ -856,6 +857,7 @@ def show_fellow_form():
                 fellow_data = {
                     "name": name,
                     "email": email,
+                    "congressional_email": congressional_email,
                     "phone": phone,
                     "fellow_type": fellow_type,
                     "party": party,

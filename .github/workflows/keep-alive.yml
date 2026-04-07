@@ -1,13 +1,27 @@
-name: Keep Streamlit App Alive
+name: Keep Alive
 
 on:
   schedule:
-    - cron: '0 */12 * * *'  # Runs every 12 hours
+    - cron: '0 12 1 * *'  # Runs on the 1st of every month at noon UTC
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  ping:
+  keep-alive:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
       - name: Ping Streamlit App
         run: curl -s -o /dev/null -w "%{http_code}" https://techcongress-fellows-dashboard.streamlit.app/
+
+      - name: Commit to keep workflows enabled
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "keep-alive: $(date -u +"%Y-%m-%d")" > .github/keep-alive.txt
+          git add .github/keep-alive.txt
+          git commit -m "chore: keep-alive $(date -u +"%Y-%m-%d")"
+          git push
