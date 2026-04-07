@@ -23,9 +23,11 @@ jobs:
         run: pip install gspread google-auth pytz
 
       - name: Write secrets file
+        env:
+          SECRETS_TOML: ${{ secrets.SECRETS_TOML }}
         run: |
           mkdir -p .streamlit
-          echo "${{ secrets.SECRETS_TOML }}" > .streamlit/secrets.toml
+          printf '%s' "$SECRETS_TOML" > .streamlit/secrets.toml
 
       - name: Run sync
         run: python sync_status_reports.py

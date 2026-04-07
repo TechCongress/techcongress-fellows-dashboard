@@ -183,7 +183,7 @@ def main():
     chamber_counts = {}
     type_counts = {}
 
-    for f in fellows:
+    for f in active_fellows:
         p = f.get("party")
         if p:  # skip fellows with no party (e.g. AISF)
             party_counts[p] = party_counts.get(p, 0) + 1
