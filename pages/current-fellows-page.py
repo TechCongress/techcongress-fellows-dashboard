@@ -11,6 +11,7 @@ from helpers import (
     FORM_RESPONSES_URL,
     fetch_events, fetch_all_event_attendance, get_quarter_compliance,
     _date_to_quarter, _is_tracked_cohort,
+    create_alumni,
 )
 
 EVENT_TYPE_COLORS = {
@@ -65,6 +66,10 @@ if "show_checkin_form" not in st.session_state:
     st.session_state.show_checkin_form = False
 if "trigger_modal" not in st.session_state:
     st.session_state.trigger_modal = False
+if "trigger_alumni_dialog" not in st.session_state:
+    st.session_state.trigger_alumni_dialog = False
+if "alumni_source_fellow" not in st.session_state:
+    st.session_state.alumni_source_fellow = None
 
 # ============ CUSTOM CSS ============
 st.markdown(get_css(), unsafe_allow_html=True)
@@ -104,18 +109,28 @@ def main():
         # Reset trigger after showing modal
         st.session_state.trigger_modal = False
 
+    # Show Move to Alumni dialog if triggered
+    if st.session_state.trigger_alumni_dialog and st.session_state.alumni_source_fellow:
+        show_move_to_alumni_dialog(st.session_state.alumni_source_fellow)
+        st.session_state.trigger_alumni_dialog = False
+        st.session_state.alumni_source_fellow = None
+
     if not fellows:
         st.warning("No fellows found. Add your first fellow to get started!")
         if st.session_state.show_add_form:
             show_fellow_form()
         return
 
-    # Calculate stats
-    total = len(fellows)
-    on_track = len([f for f in fellows if f["status"] in ["on-track", "Active"]])
-    flagged = len([f for f in fellows if f["status"] in ["flagged", "Flagged"]])
-    ending_soon = len([f for f in fellows if f["status"] in ["ending-soon", "Ending Soon"]])
-    needs_checkin = len([f for f in fellows if calculate_days_since(f["last_check_in"]) > 210 and f["status"] in ["on-track", "Active"] and "AI Security" not in (f.get("fellow_type") or "")])
+    # Exclude withdrawn/alumni fellows from stats and default view
+    INACTIVE_STATUSES = ["Withdrew", "Alumni"]
+    active_fellows = [f for f in fellows if f["status"] not in INACTIVE_STATUSES]
+
+    # Calculate stats (active fellows only)
+    total = len(active_fellows)
+    on_track = len([f for f in active_fellows if f["status"] in ["on-track", "Active"]])
+    flagged = len([f for f in active_fellows if f["status"] in ["flagged", "Flagged"]])
+    ending_soon = len([f for f in active_fellows if f["status"] in ["ending-soon", "Ending Soon"]])
+    needs_checkin = len([f for f in active_fellows if calculate_days_since(f["last_check_in"]) > 210 and f["status"] in ["on-track", "Active"] and "AI Security" not in (f.get("fellow_type") or "")])
 
     # Stats row
     st.markdown("---")
@@ -228,7 +243,7 @@ def main():
         with col1:
             search = st.text_input("Search", placeholder="Name or office...")
         with col2:
-            status_options = ["All Statuses", "Active", "Flagged", "Ending Soon"]
+            status_options = ["All Active", "Active", "Flagged", "Ending Soon", "Withdrew"]
             status_filter = st.selectbox("Status", status_options)
         with col3:
             fellow_type_options = ["All Types", "Senior Congressional Innovation Fellow", "Congressional Innovation Fellow", "AI Security Fellow"]
@@ -250,17 +265,19 @@ def main():
             sort_options = ["Priority (Flagged first)", "Name (A-Z)", "Name (Z-A)", "Last Check-in (oldest first)", "Last Check-in (newest first)", "End Date (soonest first)", "End Date (latest first)", "Cohort (newest first)", "Cohort (oldest first)"]
             sort_by = st.selectbox("Sort by", sort_options, index=sort_options.index("Cohort (newest first)"))
 
-    # Apply filters
-    filtered_fellows = fellows.copy()
+    # Apply filters — base list depends on status filter
+    if status_filter == "All Active":
+        filtered_fellows = active_fellows.copy()
+    elif status_filter == "Withdrew":
+        filtered_fellows = [f for f in fellows if f["status"] == "Withdrew"]
+    else:
+        filtered_fellows = [f for f in active_fellows if f["status"] == status_filter]
 
     if search:
         search_lower = search.lower()
         filtered_fellows = [f for f in filtered_fellows if
             search_lower in f["name"].lower() or
             search_lower in f["office"].lower()]
-
-    if status_filter != "All Statuses":
-        filtered_fellows = [f for f in filtered_fellows if f["status"] == status_filter]
 
     if fellow_type_filter != "All Types":
         filtered_fellows = [f for f in filtered_fellows if f["fellow_type"] == fellow_type_filter]
@@ -277,7 +294,7 @@ def main():
     # Sort based on selected option
     if sort_by == "Priority (Flagged first)":
         def sort_key(f):
-            status_priority = {"flagged": 0, "Flagged": 0, "ending-soon": 1, "Ending Soon": 1, "on-track": 2, "Active": 2}.get(f["status"], 3)
+            status_priority = {"flagged": 0, "Flagged": 0, "ending-soon": 1, "Ending Soon": 1, "on-track": 2, "Active": 2, "Withdrew": 4}.get(f["status"], 3)
             days_since = calculate_days_since(f["last_check_in"])
             return (status_priority, -days_since)
         filtered_fellows.sort(key=sort_key)
@@ -299,7 +316,10 @@ def main():
         filtered_fellows.sort(key=lambda f: _cohort_sort_key(f.get("cohort") or ""))
 
     # Show count
-    st.caption(f"Showing {len(filtered_fellows)} of {total} fellows")
+    if status_filter == "Withdrew":
+        st.caption(f"Showing {len(filtered_fellows)} withdrawn fellow(s)")
+    else:
+        st.caption(f"Showing {len(filtered_fellows)} of {total} active fellows")
 
     # Show add/edit form if needed
     if st.session_state.show_add_form or st.session_state.editing_fellow:
@@ -325,7 +345,8 @@ def show_fellow_card(fellow):
         "flagged": ("#fde047", "#854d0e"),
         "Flagged": ("#fde047", "#854d0e"),
         "ending-soon": ("#f87171", "#991b1b"),
-        "Ending Soon": ("#f87171", "#991b1b")
+        "Ending Soon": ("#f87171", "#991b1b"),
+        "Withdrew": ("#e5e7eb", "#6b7280"),
     }
     status_label = {"on-track": "Active", "flagged": "Flagged", "ending-soon": "Ending Soon"}.get(fellow["status"], fellow["status"])
     bg_color, text_color = status_colors.get(fellow["status"], ("#4ade80", "#166534"))
@@ -415,7 +436,8 @@ def show_fellow_modal(fellow):
         "flagged": ("#fde047", "#854d0e"),
         "Flagged": ("#fde047", "#854d0e"),
         "ending-soon": ("#f87171", "#991b1b"),
-        "Ending Soon": ("#f87171", "#991b1b")
+        "Ending Soon": ("#f87171", "#991b1b"),
+        "Withdrew": ("#e5e7eb", "#6b7280"),
     }
     status_label = {"on-track": "Active", "flagged": "Flagged", "ending-soon": "Ending Soon"}.get(fellow["status"], fellow["status"])
     bg_color, text_color = status_colors.get(fellow["status"], ("#4ade80", "#166534"))
@@ -755,16 +777,126 @@ def show_fellow_modal(fellow):
     st.markdown("---")
 
     # Action buttons at bottom
-    btn_col1, btn_col2 = st.columns(2)
+    btn_col1, btn_col2, btn_col3 = st.columns(3)
     with btn_col1:
         if st.button("Edit Fellow", key=f"edit_modal_{fellow['id']}", use_container_width=True, type="primary"):
             st.session_state.editing_fellow = fellow
             st.session_state.modal_fellow_id = None
             st.rerun()
     with btn_col2:
+        if st.button("Move to Alumni", key=f"move_alumni_{fellow['id']}", use_container_width=True):
+            st.session_state.trigger_alumni_dialog = True
+            st.session_state.alumni_source_fellow = fellow
+            st.session_state.modal_fellow_id = None
+            st.rerun()
+    with btn_col3:
         if st.button("Close", key=f"close_modal_{fellow['id']}", use_container_width=True):
             st.session_state.modal_fellow_id = None
             st.rerun()
+
+
+@st.dialog("Move to Alumni", width="large")
+def show_move_to_alumni_dialog(fellow):
+    """Pre-filled alumni creation dialog triggered from fellow modal."""
+    st.markdown(f"### Move {fellow['name']} to Alumni")
+    st.caption("Confirm or fill in the details below. This will create an alumni record and mark this fellow as Alumni.")
+
+    with st.form("move_to_alumni_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            alumni_name = st.text_input("Name *", value=fellow.get("name", ""))
+            alumni_email = st.text_input("Email", value=fellow.get("email", ""))
+            alumni_phone = st.text_input("Phone", value=fellow.get("phone", ""))
+            alumni_linkedin = st.text_input("LinkedIn URL", value=fellow.get("linkedin", ""))
+            alumni_cohort = st.text_input("Cohort", value=fellow.get("cohort", ""))
+
+        with col2:
+            fellow_type_options = [
+                "Congressional Innovation Fellow",
+                "Senior Congressional Innovation Fellow",
+                "AI Security Fellow",
+            ]
+            current_type = fellow.get("fellow_type", "")
+            fellow_types_default = [current_type] if current_type in fellow_type_options else []
+            fellow_types = st.multiselect("Fellow Type(s)", fellow_type_options, default=fellow_types_default)
+
+            party_opts = ["", "Democrat", "Republican", "Independent", "Institutional Office"]
+            alumni_party = st.selectbox(
+                "Party",
+                party_opts,
+                index=party_opts.index(fellow.get("party", "")) if fellow.get("party", "") in party_opts else 0,
+            )
+            chamber_opts = ["", "Senate", "House", "Executive Branch"]
+            alumni_chamber = st.selectbox(
+                "Chamber",
+                chamber_opts,
+                index=chamber_opts.index(fellow.get("chamber", "")) if fellow.get("chamber", "") in chamber_opts else 0,
+            )
+            sector_opts = ["", "Government", "Nonprofit/Think Tank", "Academia", "Private Sector", "Other"]
+            alumni_sector = st.selectbox("Current Sector", sector_opts)
+
+        alumni_office_served = st.text_input("Office Served", value=fellow.get("office", ""))
+        alumni_current_role = st.text_input("Current Role", placeholder="e.g., Policy Director at CSIS")
+        alumni_location = st.text_input("Location", placeholder="e.g., Washington, DC")
+        alumni_education = st.text_input("Education", value=fellow.get("education", ""))
+        alumni_prior_role = st.text_input("Prior Role", value=fellow.get("prior_role", ""))
+
+        chk_col1, chk_col2 = st.columns(2)
+        with chk_col1:
+            alumni_on_hill = st.checkbox("Currently on the Hill?", value=False)
+        with chk_col2:
+            alumni_contact = st.checkbox("Keep in contact?", value=True)
+
+        alumni_notes = st.text_area("Notes", value=fellow.get("notes", ""))
+
+        form_col1, form_col2 = st.columns(2)
+        with form_col1:
+            cancel = st.form_submit_button("Cancel", use_container_width=True)
+        with form_col2:
+            confirm = st.form_submit_button("Move to Alumni", type="primary", use_container_width=True)
+
+        if cancel:
+            st.rerun()
+
+        if confirm:
+            if not alumni_name:
+                st.error("Name is required.")
+            else:
+                alumni_data = {
+                    "name": alumni_name,
+                    "email": alumni_email,
+                    "phone": alumni_phone,
+                    "cohort": alumni_cohort,
+                    "fellow_types": fellow_types,
+                    "party": alumni_party,
+                    "office_served": alumni_office_served,
+                    "chamber": alumni_chamber,
+                    "education": alumni_education,
+                    "prior_role": alumni_prior_role,
+                    "current_role": alumni_current_role,
+                    "currently_on_hill": alumni_on_hill,
+                    "sector": alumni_sector,
+                    "location": alumni_location,
+                    "contact": alumni_contact,
+                    "linkedin": alumni_linkedin,
+                    "last_engaged": "",
+                    "engagement_notes": "",
+                    "notes": alumni_notes,
+                }
+                alumni_created = create_alumni(alumni_data)
+                if alumni_created:
+                    fellow_update = dict(fellow)
+                    fellow_update["status"] = "Alumni"
+                    if update_fellow(fellow["id"], fellow_update):
+                        st.success(f"{alumni_name} has been moved to alumni!")
+                        import time
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.warning("Alumni record created but failed to update fellow status. Please set status to Alumni manually.")
+                else:
+                    st.error("Failed to create alumni record. Please try again.")
 
 
 def show_fellow_form():
@@ -801,10 +933,11 @@ def show_fellow_form():
                 ["", "Senate", "House"],
                 index=["", "Senate", "House"].index(fellow.get("chamber", "")) if fellow.get("chamber", "") in ["", "Senate", "House"] else 0
             )
+            status_form_opts = ["Active", "Flagged", "Ending Soon", "Withdrew"]
             status = st.selectbox(
                 "Status",
-                ["Active", "Flagged", "Ending Soon"],
-                index=["Active", "Flagged", "Ending Soon"].index(fellow.get("status", "Active")) if fellow.get("status", "Active") in ["Active", "Flagged", "Ending Soon"] else 0
+                status_form_opts,
+                index=status_form_opts.index(fellow.get("status", "Active")) if fellow.get("status", "Active") in status_form_opts else 0
             )
 
         office = st.text_input("Office", value=fellow.get("office", ""), placeholder="e.g., Sen. Maria Cantwell (D-WA)")
