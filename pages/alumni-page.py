@@ -392,7 +392,7 @@ def show_on_the_hill_tab(alumni_list):
     # Search / filter bar
     col_search, col_party, col_cohort = st.columns([3, 2, 2])
     with col_search:
-        hill_search = st.text_input("Search", placeholder="Name or role…", key="hill_search", label_visibility="collapsed")
+        hill_search = st.text_input("Search", placeholder="Name or role…", key="hill_search")
     with col_party:
         hill_party = st.selectbox("Party", ["All Parties", "Democrat", "Republican", "Independent", "Institutional Office"], key="hill_party")
     with col_cohort:
