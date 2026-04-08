@@ -4,6 +4,11 @@ sync_status_reports.py — Standalone monthly status report sync
 Run this script on the 1st of each month to automatically log whether fellows
 submitted their monthly status report on time, based on Google Form responses.
 
+Grace period: submissions up to GRACE_DAYS into the following month are
+attributed to the target month and flagged as late=TRUE. This prevents
+double-counting when a fellow submits late (e.g. April 3rd for their March
+report) and later submits their actual April report.
+
 Usage:
     python sync_status_reports.py               # syncs previous month
     python sync_status_reports.py 2026 3        # syncs a specific year/month
@@ -16,6 +21,7 @@ Output: prints a summary to stdout and exits 0 on success, 1 on error.
 
 import sys
 import calendar
+import uuid
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -67,12 +73,16 @@ if "/spreadsheets/d/" in _form_url:
     _form_id = _form_url.split("/spreadsheets/d/")[1].split("/")[0]
     form_spreadsheet = client.open_by_key(_form_id)
 else:
-    # Fall back to the main spreadsheet if no separate URL is configured
     form_spreadsheet = spreadsheet
 
 FELLOWS_SHEET        = "Fellows"
 REPORTS_SHEET        = "Status Reports"
 FORM_RESPONSES_SHEET = "Form Responses 1"
+
+# Number of days into the next month that still count as a late submission
+# for the current month. e.g. GRACE_DAYS=7 means April 1–7 submissions
+# can be attributed to March as late.
+GRACE_DAYS = 7
 
 
 def _ws(name: str) -> gspread.Worksheet:
@@ -84,7 +94,6 @@ def _form_ws(name: str) -> gspread.Worksheet:
 
 
 def _new_id() -> str:
-    import uuid
     return str(uuid.uuid4())
 
 
@@ -118,7 +127,13 @@ except ImportError:
 def sync(year: int, month: int) -> dict:
     """
     Sync status report submissions from the form responses sheet for the
-    given year and month.
+    given year and month (including a GRACE_DAYS grace period into the
+    following month for late submissions).
+
+    Conflict prevention: any form submission whose (fellow_id, date) is
+    already recorded in the Status Reports sheet as a late submission for a
+    DIFFERENT month is skipped. This means April 3rd submissions that were
+    already attributed to March will not be double-counted as April reports.
 
     Returns:
       synced             — list of {fellow_name, month, on_time, date_submitted}
@@ -132,17 +147,24 @@ def sync(year: int, month: int) -> dict:
     deadline    = _localize(datetime(year, month, last_day, 23, 59, 59))
     month_label = datetime(year, month, 1).strftime("%b %Y")
 
-    print(f"\nSyncing status reports for {month_label}")
-    print(f"Deadline: {deadline.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    # Grace period: include submissions up to GRACE_DAYS into the next month
+    if month == 12:
+        grace_end = _localize(datetime(year + 1, 1, GRACE_DAYS, 23, 59, 59))
+    else:
+        grace_end = _localize(datetime(year, month + 1, GRACE_DAYS, 23, 59, 59))
 
-    # 1. Read form responses (from the separate form responses spreadsheet)
+    print(f"\nSyncing status reports for {month_label}")
+    print(f"On-time deadline : {deadline.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    print(f"Grace period ends: {grace_end.strftime('%Y-%m-%d %H:%M:%S %Z')} (submissions after deadline flagged as late)")
+
+    # ── 1. Read form responses ────────────────────────────────────────────────
     try:
         rows = _form_ws(FORM_RESPONSES_SHEET).get_all_records()
     except Exception as e:
         result["errors"].append(f"Failed to read form responses: {e}")
         return result
 
-    # 2. Parse timestamps, filter to target month
+    # ── 2. Parse timestamps; collect responses in the full window ─────────────
     def _parse_ts(ts_str: str):
         for fmt in ("%m/%d/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%-m/%-d/%Y %H:%M:%S"):
             try:
@@ -151,47 +173,29 @@ def sync(year: int, month: int) -> dict:
                 continue
         return None
 
-    month_responses = []
+    all_responses = []
     for row in rows:
         ts = _parse_ts(str(row.get("Timestamp", "")))
-        if ts and ts.year == year and ts.month == month:
-            month_responses.append({
-                "email":      str(row.get("Email Address", "")).strip().lower(),
-                "first_name": str(row.get("First Name", "")).strip(),
-                "last_name":  str(row.get("Last Name", "")).strip(),
-                "timestamp":  ts,
-                "on_time":    ts <= deadline,
-            })
+        if ts:
+            in_month = (ts.year == year and ts.month == month)
+            in_grace = (deadline < ts <= grace_end)
+            if in_month or in_grace:
+                all_responses.append({
+                    "email":      str(row.get("Email Address", "")).strip().lower(),
+                    "first_name": str(row.get("First Name", "")).strip(),
+                    "last_name":  str(row.get("Last Name", "")).strip(),
+                    "timestamp":  ts,
+                    "on_time":    ts <= deadline,
+                    "late":       ts > deadline,
+                })
 
-    print(f"Found {len(month_responses)} form response(s) for {month_label}")
+    print(f"Found {len(all_responses)} form response(s) in window for {month_label}")
 
-    if not month_responses:
-        result["errors"].append(f"No form responses found for {month_label}.")
+    if not all_responses:
+        result["errors"].append(f"No form responses found for {month_label} (including {GRACE_DAYS}-day grace period).")
         return result
 
-    # 3. Detect duplicates; keep earliest submission per email.
-    # Responses with no email are given a unique key so they don't get
-    # incorrectly grouped together as duplicates of each other.
-    by_email = defaultdict(list)
-    for i, r in enumerate(month_responses):
-        key = r["email"] if r["email"] else f"__nomail_{i}__"
-        by_email[key].append(r)
-
-    for key, responses in by_email.items():
-        if len(responses) > 1 and not key.startswith("__nomail_"):
-            r = responses[0]
-            result["flagged_duplicates"].append({
-                "email": key,
-                "name":  f"{r['first_name']} {r['last_name']}",
-                "count": len(responses),
-            })
-
-    deduped = {
-        key: sorted(rs, key=lambda r: r["timestamp"])[0]
-        for key, rs in by_email.items()
-    }
-
-    # 4. Build fellow lookup indexes
+    # ── 3. Fetch fellows and build lookup indexes ─────────────────────────────
     try:
         fellows_rows = _ws(FELLOWS_SHEET).get_all_records()
     except Exception as e:
@@ -209,7 +213,7 @@ def sync(year: int, month: int) -> dict:
     email_to_fellow = {f["email"].strip().lower(): f for f in fellows if f.get("email")}
     name_to_fellow  = {f["name"].strip().lower():  f for f in fellows if f.get("name")}
 
-    # 5. Load existing Status Report records
+    # ── 4. Load existing Status Report records ────────────────────────────────
     try:
         all_reports = _ws(REPORTS_SHEET).get_all_records()
     except Exception as e:
@@ -222,52 +226,103 @@ def sync(year: int, month: int) -> dict:
         for r in all_reports
     }
 
-    # 6. Match each submission and upsert a Status Report record
+    # Build set of (fellow_id, date_submitted) pairs already consumed as late
+    # submissions for a DIFFERENT month. These must be skipped to prevent
+    # double-counting (e.g. an April 3rd submission already attributed to March).
+    consumed_late = defaultdict(set)   # fellow_id -> {date_submitted_str, ...}
+    for r in all_reports:
+        if _to_bool(r.get("Late", "FALSE")):
+            fid = str(r.get("Fellow ID", ""))
+            ds  = str(r.get("Date Submitted", ""))
+            if fid and ds:
+                consumed_late[fid].add(ds)
+
+    # ── 5. Preliminary fellow-matching (before dedup) ─────────────────────────
+    # We match before deduplicating so that consumed-late filtering can use
+    # fellow IDs, preventing the dup-detection from discarding the real
+    # submission when an earlier one was already consumed by a prior month.
+    for r in all_responses:
+        email  = r["email"]
+        fellow = email_to_fellow.get(email) if email else None
+        if not fellow:
+            full_name = f"{r['first_name']} {r['last_name']}".strip().lower()
+            fellow = name_to_fellow.get(full_name)
+        r["fellow_id"]   = fellow["id"]   if fellow else None
+        r["fellow_name"] = fellow["name"] if fellow else None
+
+    # ── 6. Filter consumed-late, then dedup ───────────────────────────────────
+    by_fellow         = defaultdict(list)   # fellow_id -> [responses]
+    unmatched_by_key  = defaultdict(list)   # email/placeholder -> [responses]
+
+    for i, r in enumerate(all_responses):
+        date_str = _to_est(r["timestamp"]).strftime("%Y-%m-%d")
+        if r["fellow_id"]:
+            # Skip if this exact submission date was already consumed as late
+            # for a different month (e.g. April 3rd already used for March)
+            if date_str in consumed_late.get(r["fellow_id"], set()):
+                print(f"   ↩ Skipping {r['first_name']} {r['last_name']} ({date_str}) — already attributed to a prior month as late")
+                continue
+            by_fellow[r["fellow_id"]].append(r)
+        else:
+            key = r["email"] if r["email"] else f"__nomail_{i}__"
+            unmatched_by_key[key].append(r)
+
+    # Flag duplicates and keep earliest per fellow
+    deduped_fellows = {}
+    for fellow_id, responses in by_fellow.items():
+        if len(responses) > 1:
+            r = responses[0]
+            result["flagged_duplicates"].append({
+                "email": r["email"],
+                "name":  f"{r['first_name']} {r['last_name']}",
+                "count": len(responses),
+            })
+        deduped_fellows[fellow_id] = sorted(responses, key=lambda r: r["timestamp"])[0]
+
+    # Flag duplicates and report unmatched
+    for key, responses in unmatched_by_key.items():
+        if len(responses) > 1 and not key.startswith("__nomail_"):
+            r = responses[0]
+            result["flagged_duplicates"].append({
+                "email": key,
+                "name":  f"{r['first_name']} {r['last_name']}",
+                "count": len(responses),
+            })
+        r = sorted(responses, key=lambda r: r["timestamp"])[0]
+        result["unmatched"].append({
+            "email":      r["email"],
+            "first_name": r["first_name"],
+            "last_name":  r["last_name"],
+        })
+
+    # ── 7. Upsert Status Report records ───────────────────────────────────────
     ws_reports = _ws(REPORTS_SHEET)
 
-    for key, response in deduped.items():
-        # Primary: email match (skip if this is a no-email placeholder key)
-        email = response["email"]
-        fellow = email_to_fellow.get(email) if email else None
-
-        # Fallback: full name match
-        if not fellow:
-            full_name = f"{response['first_name']} {response['last_name']}".strip().lower()
-            fellow = name_to_fellow.get(full_name)
-
-        if not fellow:
-            result["unmatched"].append({
-                "email":      response["email"],
-                "first_name": response["first_name"],
-                "last_name":  response["last_name"],
-            })
-            continue
-
-        fellow_id      = fellow["id"]
-        fellow_name    = fellow["name"]
+    for fellow_id, response in deduped_fellows.items():
+        fellow_name    = response["fellow_name"]
         date_submitted = _to_est(response["timestamp"]).strftime("%Y-%m-%d")
-        on_time        = response["on_time"]
-        notes          = "" if on_time else "⚠️ Submitted after month-end deadline (11:59 PM EST)"
+        is_late        = response["late"]
+        notes          = "" if not is_late else "⚠️ Submitted after month-end deadline (11:59 PM EST)"
 
-        key = (fellow_id, month_label)
+        report_key = (fellow_id, month_label)
         try:
-            if key in existing:
-                # Update existing record: find row by ID and update Submitted + Date Submitted
-                report_id = existing[key]
+            if report_key in existing:
+                report_id = existing[report_key]
                 cell = ws_reports.find(report_id, in_column=1)
                 if cell:
-                    ws_reports.update_cell(cell.row, 5, "TRUE")           # E: Submitted
-                    ws_reports.update_cell(cell.row, 6, date_submitted)   # F: Date Submitted
+                    ws_reports.update_cell(cell.row, 5, "TRUE")                              # E: Submitted
+                    ws_reports.update_cell(cell.row, 6, date_submitted)                      # F: Date Submitted
+                    ws_reports.update_cell(cell.row, 8, "TRUE" if is_late else "FALSE")      # H: Late
             else:
-                # Append new record
                 ws_reports.append_row([
-                    _new_id(),      # A: ID
-                    fellow_id,      # B: Fellow ID
-                    fellow_name,    # C: Fellow Name
-                    month_label,    # D: Month
-                    "TRUE",         # E: Submitted
-                    date_submitted, # F: Date Submitted
-                    notes,          # G: Notes
+                    _new_id(),                              # A: ID
+                    fellow_id,                              # B: Fellow ID
+                    fellow_name,                            # C: Fellow Name
+                    month_label,                            # D: Month
+                    "TRUE",                                 # E: Submitted
+                    date_submitted,                         # F: Date Submitted
+                    notes,                                  # G: Notes
+                    "TRUE" if is_late else "FALSE",         # H: Late
                 ], value_input_option="USER_ENTERED")
         except Exception as e:
             result["errors"].append(f"Failed to write record for {fellow_name}: {e}")
@@ -276,8 +331,9 @@ def sync(year: int, month: int) -> dict:
         result["synced"].append({
             "fellow_name":    fellow_name,
             "month":          month_label,
-            "on_time":        on_time,
+            "on_time":        not is_late,
             "date_submitted": date_submitted,
+            "late":           is_late,
         })
 
     return result
@@ -313,7 +369,12 @@ if __name__ == "__main__":
 
     print(f"\n✅ Synced ({len(result['synced'])}):")
     for r in result["synced"]:
-        status = "on time" if r["on_time"] else "LATE"
+        if r["late"]:
+            status = "LATE"
+        elif r["on_time"]:
+            status = "on time"
+        else:
+            status = "unknown"
         print(f"   {r['fellow_name']} — {r['date_submitted']} ({status})")
 
     if result["flagged_duplicates"]:

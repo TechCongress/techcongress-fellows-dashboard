@@ -605,7 +605,11 @@ def show_fellow_modal(fellow):
 
                 if is_submitted:
                     report = submitted_months[month]
-                    st.markdown(f'<div style="background:var(--tc-present-bg);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #22c55e;"><span style="color:var(--tc-present-text);font-weight:600;">✅ {month}</span><span style="color:var(--tc-text4);"> — Submitted {report.get("date_submitted", "")}</span></div>', unsafe_allow_html=True)
+                    is_late = report.get("late", False)
+                    if is_late:
+                        st.markdown(f'<div style="background:#fefce8;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #eab308;"><span style="color:#854d0e;font-weight:600;">⏰ {month}</span><span style="color:var(--tc-text4);"> — Submitted late on {report.get("date_submitted", "")} (does not count toward streak)</span></div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div style="background:var(--tc-present-bg);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #22c55e;"><span style="color:var(--tc-present-text);font-weight:600;">✅ {month}</span><span style="color:var(--tc-text4);"> — Submitted {report.get("date_submitted", "")}</span></div>', unsafe_allow_html=True)
                 elif is_overdue:
                     st.markdown(f'<div style="background:var(--tc-absent-bg);padding:0.5rem 0.75rem;border-radius:0.5rem;margin-bottom:0.5rem;border-left:3px solid #ef4444;"><span style="color:var(--tc-absent-text);font-weight:600;">❌ {month}</span><span style="color:var(--tc-text4);"> — OVERDUE (was due {last_day.strftime("%b %d")})</span></div>', unsafe_allow_html=True)
                 else:
@@ -616,6 +620,10 @@ def show_fellow_modal(fellow):
             with st.form(f"status_report_form_{fellow['id']}"):
                 month_to_mark = st.selectbox("Month", required_months)
                 date_submitted = st.date_input("Date Submitted", value=datetime.now())
+                mark_as_late = st.checkbox(
+                    "Late submission (submitted after month-end deadline)",
+                    help="Check this if the report was submitted after the last day of the month. Late submissions are recorded but do not count toward the streak."
+                )
 
                 if st.form_submit_button("Mark Submitted", use_container_width=True):
                     existing_report = None
@@ -625,8 +633,8 @@ def show_fellow_modal(fellow):
                             break
 
                     if existing_report:
-                        if update_status_report(existing_report["id"], True, date_submitted.strftime("%Y-%m-%d")):
-                            st.success(f"Marked {month_to_mark} as submitted!")
+                        if update_status_report(existing_report["id"], True, date_submitted.strftime("%Y-%m-%d"), late=mark_as_late):
+                            st.success(f"Marked {month_to_mark} as submitted{' (late)' if mark_as_late else ''}!")
                             import time
                             time.sleep(1)
                             st.rerun()
@@ -636,10 +644,12 @@ def show_fellow_modal(fellow):
                             "fellow_name": fellow["name"],
                             "month": month_to_mark,
                             "submitted": True,
-                            "date_submitted": date_submitted.strftime("%Y-%m-%d")
+                            "date_submitted": date_submitted.strftime("%Y-%m-%d"),
+                            "late": mark_as_late,
+                            "notes": "⚠️ Submitted after month-end deadline (11:59 PM EST)" if mark_as_late else "",
                         }
                         if add_status_report(report_data):
-                            st.success(f"Marked {month_to_mark} as submitted!")
+                            st.success(f"Marked {month_to_mark} as submitted{' (late)' if mark_as_late else ''}!")
                             import time
                             time.sleep(1)
                             st.rerun()

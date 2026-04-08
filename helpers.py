@@ -346,6 +346,7 @@ def fetch_status_reports(fellow_id: str) -> list[dict]:
                 "submitted":      _to_bool(row.get("Submitted", False)),
                 "date_submitted": str(row.get("Date Submitted", "")),
                 "notes":          str(row.get("Notes", "")),
+                "late":           _to_bool(row.get("Late", False)),
             })
     # Sort by month ascending
     def _month_sort_key(r):
@@ -374,6 +375,7 @@ def add_status_report(report_data: dict) -> bool:
             "TRUE" if report_data.get("submitted", False) else "FALSE",   # E
             report_data.get("date_submitted", ""),                        # F
             report_data.get("notes", ""),                                 # G
+            "TRUE" if report_data.get("late", False) else "FALSE",        # H
         ], value_input_option="USER_ENTERED")
         return True
     except Exception as e:
@@ -381,12 +383,12 @@ def add_status_report(report_data: dict) -> bool:
         return False
 
 
-def update_status_report(record_id: str, submitted: bool, date_submitted: str = None) -> bool:
+def update_status_report(record_id: str, submitted: bool, date_submitted: str = None, late: bool = None) -> bool:
     """
-    Update a status report's submitted status (and optionally date).
+    Update a status report's submitted status (and optionally date/late flag).
 
-    Airtable equivalent: PATCH with {"Submitted": bool, "Date Submitted": date}
-    Here: find the row, update columns D (Submitted) and E (Date Submitted).
+    Sheet columns: A=ID, B=Fellow ID, C=Fellow Name, D=Month,
+                   E=Submitted, F=Date Submitted, G=Notes, H=Late
     """
     try:
         ws = _worksheet(REPORTS_SHEET)
@@ -394,10 +396,11 @@ def update_status_report(record_id: str, submitted: bool, date_submitted: str = 
         if not cell:
             st.error("Status report not found.")
             return False
-        # "Submitted" is column 4, "Date Submitted" is column 5
-        ws.update_cell(cell.row, 4, "TRUE" if submitted else "FALSE")
+        ws.update_cell(cell.row, 5, "TRUE" if submitted else "FALSE")   # E: Submitted
         if date_submitted:
-            ws.update_cell(cell.row, 5, date_submitted)
+            ws.update_cell(cell.row, 6, date_submitted)                  # F: Date Submitted
+        if late is not None:
+            ws.update_cell(cell.row, 8, "TRUE" if late else "FALSE")     # H: Late
         return True
     except Exception as e:
         st.error(f"Failed to update status report: {e}")
@@ -584,7 +587,8 @@ def calculate_report_streak(reports: list[dict], required_months: list[str]) -> 
             "missed_count": 0,
         }
 
-    submitted_months = {r["month"] for r in reports if r.get("submitted")}
+    # Only on-time submissions count toward streaks; late ones are excluded
+    submitted_months = {r["month"] for r in reports if r.get("submitted") and not r.get("late")}
     today = datetime.now()
 
     past_months = []
